@@ -8,3 +8,4 @@ TEMPLATE = app
 
 SOURCES +=  tst_parser.cpp
 HEADERS += ../serverdiscovery/ssdp_message.hpp
+INCLUDEPATH += $$PWD/../dep/optional/include

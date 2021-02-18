@@ -1,0 +1,3 @@
+[submodule "dep/optional"]
+	path = dep/optional
+	url = https://bitbucket.mskorp.ru/scm/desmpn/optional.git

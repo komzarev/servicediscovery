@@ -27,5 +27,7 @@ unix {
 }
 !isEmpty(target.path): INSTALLS += target
 
+INCLUDEPATH += $$PWD/../dep/optional/include
+
 SOURCES += \
     ssdp_qt.cpp

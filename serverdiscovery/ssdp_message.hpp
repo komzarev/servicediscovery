@@ -4,8 +4,8 @@
 #include "string_find.h"
 #include "string_format.h"
 #include "string_trim.h"
+#include "tl/optional.hpp"
 #include <memory>
-#include <optional>
 #include <stdexcept>
 #include <string>
 
@@ -36,13 +36,13 @@ public:
 
     Request() = default;
 
-    static std::optional<Request> from_string(const std::string& str)
+    static tl::optional<Request> from_string(const std::string& str)
     {
         using namespace rl::str;
 
         Request ret;
         if (str.rfind("M-SEARCH", 0) != 0 || str.find("MAN: \"ssdp:discover\"") == std::string::npos) {
-            return std::nullopt;
+            return tl::nullopt;
         }
 
         auto urnpos = position_after(str, "ST: urn:");
@@ -50,7 +50,7 @@ public:
         ret.servername = get_until(str, ":", urnpos);
         ret.serverdetails = get_until(str, "\n", urnpos);
         if (urnpos == std::string::npos) {
-            return std::nullopt;
+            return tl::nullopt;
         }
 
         trim(ret.servername);
@@ -91,13 +91,13 @@ public:
 
     Response() = default;
 
-    static std::optional<Response> from_string(const std::string& str)
+    static tl::optional<Response> from_string(const std::string& str)
     {
         using namespace rl::str;
 
         Response ret;
         if (str.rfind("HTTP/1.1 200 OK", 0) != 0 || str.find("NTS: ssdp:alive") == std::string::npos) {
-            return std::nullopt;
+            return tl::nullopt;
         }
 
         auto urnpos = position_after(str, "ST: urn:");
@@ -105,13 +105,13 @@ public:
         ret.servername = get_until(str, ":", urnpos);
         ret.serverdetails = get_until(str, "\n", urnpos);
         if (urnpos == std::string::npos) {
-            return std::nullopt;
+            return tl::nullopt;
         }
 
         urnpos = position_after(str, "LOCATION: http://");
         ret.location = get_until(str, "\n", urnpos);
         if (urnpos == std::string::npos) {
-            return std::nullopt;
+            return tl::nullopt;
         }
 
         trim(ret.servername);

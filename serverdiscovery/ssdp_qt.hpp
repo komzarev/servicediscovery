@@ -20,7 +20,7 @@ public:
     Server(const QString& type, QObject* parent = 0)
         : QObject(parent)
     {
-        resp.servertype = type.toLatin1().data();
+        resp_.servertype = type.toLatin1().data();
     }
 
     bool start(const QString& name, const QString& details)
@@ -40,8 +40,8 @@ public:
 
         connect(socket_, &QUdpSocket::readyRead, this, &Server::readPendingDatagrams);
 
-        resp.servername = name.toLatin1().data();
-        resp.serverdetails = details.toLatin1().data();
+        resp_.servername = name.toLatin1().data();
+        resp_.serverdetails = details.toLatin1().data();
         return result;
     }
 
@@ -64,7 +64,7 @@ private:
     {
         auto data = dg.data();
         if (auto req = Request::from_string(data.data())) {
-            if (resp.matchRequest(req.value())) {
+            if (resp_.matchRequest(req.value())) {
                 auto iface = QNetworkInterface::interfaceFromIndex(dg.interfaceIndex());
                 auto ips = iface.addressEntries();
                 if (ips.empty()) {
@@ -73,13 +73,13 @@ private:
                 }
 
                 auto str = ips[0].ip().toString() + ":" + port_;
-                resp.location = str.toLatin1().data();
-                socket_->writeDatagram(resp.to_string().c_str(), dg.senderAddress(), dg.senderPort());
+                resp_.location = str.toLatin1().data();
+                socket_->writeDatagram(resp_.to_string().c_str(), dg.senderAddress(), dg.senderPort());
             }
         }
     }
 
-    Response resp;
+    Response resp_;
     QUdpSocket* socket_ = nullptr;
     QString port_;
 };
