@@ -22,12 +22,12 @@ HEADERS += \
     string_trim.h
 
 # Default rules for deployment.
-unix {
-    target.path = $$[QT_INSTALL_PLUGINS]/generic
-}
-!isEmpty(target.path): INSTALLS += target
+INSTALLS += target
 
 INCLUDEPATH += $$PWD/../dep/optional/include
 
 SOURCES += \
     ssdp_qt.cpp
+
+DISTFILES += \
+    serverdiscovery.pri

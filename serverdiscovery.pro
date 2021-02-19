@@ -4,4 +4,5 @@ CONFIG += c++17
 
 SUBDIRS += \
     serverdiscovery \
-    test_message
+    test_message \
+    examples

@@ -49,6 +49,13 @@ namespace qt
             return result;
         }
 
+        void stop()
+        {
+            socket_->close();
+            delete socket_;
+            socket_ = nullptr;
+        }
+
         void setServicePort(const QString& port)
         {
             port_ = port;
@@ -76,9 +83,13 @@ namespace qt
                         return;
                     }
 
-                    auto str = ips[0].ip().toString() + ":" + port_;
-                    resp_.location = str.toLatin1().data();
-                    socket_->writeDatagram(resp_.to_string().c_str(), dg.senderAddress(), dg.senderPort());
+                    for (auto ip : ips) {
+                        if (ip.ip().protocol() == QAbstractSocket::IPv4Protocol) {
+                            auto str = ip.ip().toString() + ":" + port_;
+                            resp_.location = str.toLatin1().data();
+                            socket_->writeDatagram(resp_.to_string().c_str(), dg.senderAddress(), dg.senderPort());
+                        }
+                    }
                 }
             }
         }
@@ -98,13 +109,14 @@ namespace qt
             QString type;
             QString name;
             QString details;
-            QString socket;
+            QString socketString;
         };
 
         Client(QObject* parent = 0)
             : QObject(parent)
         {
             socket_ = new QUdpSocket(this);
+            //            socket_->bind(QHostAddress::AnyIPv4);
         }
 
         QString findConnetionString(const QString& type, const QString& name, const QString& details, int timeout_ms = 500)
@@ -112,7 +124,7 @@ namespace qt
             QString ret;
             auto list = findAllServers(type, name, details, timeout_ms);
             if (!list.isEmpty()) {
-                ret = list[0].socket;
+                ret = list[0].socketString;
             }
             return ret;
         }
@@ -133,7 +145,7 @@ namespace qt
                 auto res = Response::from_string(dg.data().data());
                 if (res.has_value()) {
                     ServerInfo si;
-                    si.socket = QString::fromStdString(res->location);
+                    si.socketString = QString::fromStdString(res->location);
                     si.name = QString::fromStdString(res->servername);
                     si.type = QString::fromStdString(res->servertype);
                     si.details = QString::fromStdString(res->serverdetails);
