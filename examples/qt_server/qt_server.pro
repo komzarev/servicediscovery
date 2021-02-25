@@ -1,4 +1,4 @@
-include($$PWD/../../serverdiscovery/serverdiscovery.pri)
+include($$PWD/../../serverdiscovery/qt_serverdiscovery.pri)
 INCLUDEPATH += $$PWD/../../dep/optional/include
 QT -= gui
 QT       += network

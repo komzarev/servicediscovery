@@ -1,4 +1,4 @@
-include($$PWD/../../serverdiscovery/serverdiscovery.pri)
+include($$PWD/../../serverdiscovery/qt_serverdiscovery.pri)
 INCLUDEPATH += $$PWD/../../dep/optional/include
 QT -= gui
 
@@ -16,3 +16,5 @@ SOURCES += \
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+
