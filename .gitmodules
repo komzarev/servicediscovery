@@ -1,3 +1,6 @@
 [submodule "dep/optional"]
 	path = dep/optional
 	url = https://bitbucket.mskorp.ru/scm/desmpn/optional.git
+[submodule "dep/boost-ho"]
+	path = dep/boost-ho
+	url = https://bitbucket.mskorp.ru/scm/desmpn/boost-ho.git
