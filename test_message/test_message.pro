@@ -1,4 +1,4 @@
-include($$PWD/../serverdiscovery/serverdiscovery.pri)
+include($$PWD/../serverdiscovery/qt_serverdiscovery.pri)
 
 QT += testlib
 QT -= gui

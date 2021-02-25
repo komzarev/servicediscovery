@@ -15,6 +15,7 @@ CONFIG += c++17
 #    ssdp_message.cpp
 
 HEADERS += \
+    ssdp_asio.hpp \
     ssdp_message.hpp \
     ssdp_qt.hpp \
     string_find.h \
@@ -26,8 +27,15 @@ INSTALLS += target
 
 INCLUDEPATH += $$PWD/../dep/optional/include
 
+DEFINES += BOOST_ASIO_STANDALONE BOOST_ASIO_SEPARATE_COMPILATION
+INCLUDEPATH += $$PWD/../dep/boost-ho/include
+qnx7: INCLUDEPATH += -isystem $$PWD/../dep/boost-ho/qnx7
+
 SOURCES += \
+    asio_cache.cpp \
+    ssdp_asio.cpp \
     ssdp_qt.cpp
 
 DISTFILES += \
-    serverdiscovery.pri
+    qt_serverdiscovery.pri \
+    asio_serverdiscovery.pri

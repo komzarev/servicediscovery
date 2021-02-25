@@ -12,6 +12,7 @@ int main(int argc, char* argv[])
         if (list.isEmpty()) {
             qDebug() << "No servers";
         } else {
+            qDebug() << "======";
             for (auto l : list) {
                 qDebug() << l.type << l.name << l.details << l.socketString;
             }
