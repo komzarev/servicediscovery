@@ -12,7 +12,21 @@ namespace ssdp
 namespace asio
 {
 
-    using UdpSocket = boost::asio::ip::udp::socket;
+    //    using UdpSocket = boost::asio::ip::udp::socket;
+
+    class UdpSocket
+    {
+    public:
+        UdpSocket(boost::asio::io_service& io_service)
+            : socket(io_service)
+        {
+        }
+
+        boost::asio::ip::udp::socket socket;
+        boost::asio::ip::udp::endpoint remote_endpoint;
+        std::array<char, 1024> buffer;
+    };
+
     using UdpSockets = std::vector<std::unique_ptr<UdpSocket>>;
 
     class Server
@@ -29,7 +43,7 @@ namespace asio
         void stop()
         {
             for (auto& s : sockets_) {
-                s->close();
+                s->socket.close();
             }
         }
 
@@ -39,16 +53,13 @@ namespace asio
         }
 
     private:
-        void readPendingDatagrams(const boost::system::error_code& error, const size_t bytes_recived, boost::asio::ip::udp::endpoint addr_from, UdpSocket* socket);
+        void readPendingDatagrams(const boost::system::error_code& error, const size_t bytes_recived, UdpSocket* socket);
 
-        void start_receive(boost::asio::ip::udp::socket* socket);
+        void start_receive(UdpSocket* socket);
 
         UdpSockets sockets_;
         Response resp_;
         std::string port_;
-        const static int MAX_DATA_LEN = 1024;
-        char data_[MAX_DATA_LEN];
-        boost::asio::ip::udp::endpoint remote_endpoint_;
     };
 
     class Client
@@ -74,10 +85,11 @@ namespace asio
         {
             socket_.close();
         }
+
         std::string findConnetionString(const std::string& type, const std::string& name, const std::string& details, int timeout_ms = 500)
         {
             std::string ret;
-            auto list = findAllServers(type, name, details, timeout_ms);
+            auto list = findAllServers_(type, name, details, timeout_ms, true);
             if (!list.empty()) {
                 ret = list[0].socketString;
             }
@@ -86,15 +98,18 @@ namespace asio
 
         std::vector<ServerInfo> findAllServers(const std::string& type, const std::string& name, const std::string& details, int timeout_ms = 500)
         {
+            return findAllServers_(type, name, details, timeout_ms, false);
+        }
+
+    private:
+        std::vector<ServerInfo> findAllServers_(const std::string& type, const std::string& name, const std::string& details, int timeout_ms, bool onlyOne)
+        {
             std::vector<ServerInfo> ret;
             if (!sent(type, name, details)) {
                 return ret;
             }
 
-            boost::asio::ip::udp::endpoint sender_endpoint;
-
             timer_.expires_after(std::chrono::milliseconds(timeout_ms));
-
             timer_.async_wait([this](const boost::system::error_code& error) {
                 if (!error) {
                     socket_.cancel();
@@ -103,9 +118,20 @@ namespace asio
                 }
             });
 
-            socket_.async_receive(boost::asio::buffer(data_, MAX_DATA_LEN), [this, &ret](const boost::system::error_code& error, const size_t bytes_recived) {
+            startRecieve_(ret, onlyOne);
+            isRunning = true;
+
+            while (isRunning) { //socket_.is_open() always true
+                io_service_.run_one();
+            }
+            return ret;
+        }
+
+        void startRecieve_(std::vector<ServerInfo>& ret, bool onlyOne = false)
+        {
+            socket_.async_receive(boost::asio::buffer(buffer_), [this, &ret, onlyOne](const boost::system::error_code& error, const size_t bytes_recived) {
                 if (!error || error == boost::asio::error::message_size) {
-                    auto res = Response::from_string(std::string(std::begin(data_), std::begin(data_) + bytes_recived));
+                    auto res = Response::from_string(std::string(std::begin(buffer_), std::begin(buffer_) + bytes_recived));
                     if (res.has_value()) {
                         ServerInfo si;
                         si.socketString = res->location;
@@ -113,23 +139,19 @@ namespace asio
                         si.type = res->servertype;
                         si.details = res->serverdetails;
                         ret.push_back(si);
+                        if (onlyOne) {
+                            isRunning = false;
+                        } else {
+                            startRecieve_(ret, onlyOne);
+                        }
                     }
                 }
             });
-
-            isRunning = true;
-            while (isRunning) { //socket_.is_open() always true
-                io_service_.run_one();
-            }
-            return ret;
         }
-
-    private:
         bool sent(const std::string& type, const std::string& name, const std::string& details);
 
+        std::array<char, 1024> buffer_;
         bool isRunning = false;
-        const static int MAX_DATA_LEN = 1024;
-        char data_[MAX_DATA_LEN];
         boost::asio::io_service io_service_;
         boost::asio::steady_timer timer_;
         boost::asio::ip::udp::socket socket_;

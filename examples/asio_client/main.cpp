@@ -52,15 +52,17 @@ int main(int argc, char* argv[])
 {
     ssdp::asio::Client client;
     while (true) {
-        auto list = client.findAllServers("mpnet_server", "", "", 5000);
+        auto list = client.findAllServers("mpnet_server", "", "", 1000);
         if (list.empty()) {
-            std::cout << "No servers";
+            std::cout << "No servers\n";
         } else {
-            std::cout << "======\n";
+
+            //            std::cout << list << "\n";
             for (auto l : list) {
                 std::cout << with_separator(" ") << l.type << l.name << l.details << l.socketString << '\n';
             }
 
+            std::cout << "======\n";
             ::Sleep(1000);
         }
     }
