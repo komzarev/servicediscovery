@@ -36,6 +36,11 @@ namespace asio
             resp_.servertype = type;
         }
 
+        ~Server()
+        {
+            stop();
+        }
+
         bool start(const std::string& name, const std::string& details, boost::asio::io_service& io_service);
 
         void stop()
@@ -43,6 +48,7 @@ namespace asio
             for (auto& s : sockets_) {
                 s->socket.close();
             }
+            sockets_.clear();
         }
 
         void setServicePort(const std::string& port)

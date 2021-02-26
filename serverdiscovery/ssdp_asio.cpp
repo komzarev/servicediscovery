@@ -47,9 +47,10 @@ void ssdp::asio::Server::readPendingDatagrams(const boost::system::error_code& e
             auto data = std::string(std::begin(socket->buffer), std::begin(socket->buffer) + bytes_recived);
             if (auto req = Request::from_string(data.data())) {
                 if (resp_.matchRequest(req.value())) {
-                    resp_.location = socket->socket.local_endpoint().address().to_string() + ":" + port_;
+                    auto tmp = resp_;
+                    tmp.location = socket->socket.local_endpoint().address().to_string() + ":" + port_;
                     std::cout << "Answer to: " << socket->remote_endpoint.address().to_string() << "\n";
-                    socket->socket.send_to(boost::asio::buffer(resp_.to_string()), socket->remote_endpoint);
+                    socket->socket.send_to(boost::asio::buffer(tmp.to_string()), socket->remote_endpoint);
                 }
             }
         }

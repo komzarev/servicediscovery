@@ -20,7 +20,7 @@ ssdp::qt::Client::Client(QObject* parent)
                 if (ip.ip().protocol() == QAbstractSocket::IPv4Protocol) {
                     auto socket = new QUdpSocket(this);
                     socket->bind(ip.ip(), 0, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint);
-                    sockets.push_back(socket);
+                    sockets.emplace_back(socket);
                     break;
                 }
             }
@@ -54,7 +54,7 @@ QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers_(const QStr
 
     while (!deadline.hasExpired()) {
 
-        for (auto s : sockets) {
+        for (auto& s : sockets) {
             if (s->hasPendingDatagrams()) {
                 auto dg = s->receiveDatagram();
                 auto res = Response::from_string(dg.data().data());
@@ -83,7 +83,7 @@ bool ssdp::qt::Client::sent(const QString& type, const QString& name, const QStr
     Request req(type.toLatin1().data(), name.toLatin1().data(), details.toLatin1().data());
     auto str = req.to_string();
 
-    for (auto s : sockets) {
+    for (auto& s : sockets) {
         s->writeDatagram(str.c_str(), str.size(), QHostAddress("239.255.255.250"), 1900);
     }
 
@@ -138,7 +138,9 @@ void ssdp::qt::Server::processDatagram(const QNetworkDatagram& dg)
                 if (ip.ip().protocol() == QAbstractSocket::IPv4Protocol) {
                     auto str = ip.ip().toString() + ":" + port_;
                     resp_.location = str.toLatin1().data();
+                    qDebug() << "SSDP Server answer to:" << dg.senderAddress().toString();
                     socket_->writeDatagram(resp_.to_string().c_str(), dg.senderAddress(), dg.senderPort());
+                    break;
                 }
             }
         }

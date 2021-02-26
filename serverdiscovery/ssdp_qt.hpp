@@ -26,6 +26,11 @@ namespace qt
             resp_.servertype = type.toLatin1().data();
         }
 
+        ~Server()
+        {
+            stop();
+        }
+
         bool start(const QString& name, const QString& details);
 
         void stop();
@@ -76,7 +81,7 @@ namespace qt
 
         bool sent(const QString& type, const QString& name, const QString& details);
 
-        QList<QUdpSocket*> sockets;
+        std::vector<std::unique_ptr<QUdpSocket>> sockets;
     };
 }
 }
