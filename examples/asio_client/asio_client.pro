@@ -4,7 +4,8 @@ INCLUDEPATH += $$PWD/../../dep/optional/include
 CONFIG += c++11 console
 CONFIG -= app_bundle
 CONFIG -= qt
-unix:QMAKE_CXXFLAGS += -fPIC
+!win32:QMAKE_CXXFLAGS += -fPIC
+
 
 # You can make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
