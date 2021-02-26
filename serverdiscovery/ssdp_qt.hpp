@@ -28,12 +28,7 @@ namespace qt
 
         bool start(const QString& name, const QString& details);
 
-        void stop()
-        {
-            socket_->close();
-            delete socket_;
-            socket_ = nullptr;
-        }
+        void stop();
 
         void setServicePort(const QString& port)
         {
@@ -70,37 +65,18 @@ namespace qt
             QString socketString;
         };
 
-        Client(QObject* parent = 0)
-            : QObject(parent)
-        {
-            socket_ = new QUdpSocket(this);
-        }
+        Client(QObject* parent = 0);
 
-        QString findConnetionString(const QString& type, const QString& name, const QString& details, int timeout_ms = 500)
-        {
-            QString ret;
-            auto list = findAllServers_(type, name, details, timeout_ms, true);
-            if (!list.isEmpty()) {
-                ret = list[0].socketString;
-            }
-            return ret;
-        }
+        QString findConnetionString(const QString& type, const QString& name, const QString& details, int timeout_ms = 500);
 
-        QList<ServerInfo> findAllServers(const QString& type, const QString& name, const QString& details, int timeout_ms = 500)
-        {
-            return findAllServers_(type, name, details, timeout_ms, false);
-        }
+        QList<ServerInfo> findAllServers(const QString& type, const QString& name, const QString& details, int timeout_ms = 500);
 
     private:
         QList<ServerInfo> findAllServers_(const QString& type, const QString& name, const QString& details, int timeout_ms, bool onlyOnce);
 
-        bool sent(const QString& type, const QString& name, const QString& details)
-        {
-            Request req(type.toLatin1().data(), name.toLatin1().data(), details.toLatin1().data());
-            auto str = req.to_string();
-            return socket_->writeDatagram(str.c_str(), str.size(), QHostAddress("239.255.255.250"), 1900) != -1;
-        }
-        QUdpSocket* socket_ = nullptr;
+        bool sent(const QString& type, const QString& name, const QString& details);
+
+        QList<QUdpSocket*> sockets;
     };
 }
 }
