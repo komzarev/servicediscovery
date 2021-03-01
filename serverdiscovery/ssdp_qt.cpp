@@ -137,9 +137,10 @@ void ssdp::qt::Server::processDatagram(const QNetworkDatagram& dg)
             for (auto ip : ips) {
                 if (ip.ip().protocol() == QAbstractSocket::IPv4Protocol) {
                     auto str = ip.ip().toString() + ":" + port_;
-                    resp_.location = str.toLatin1().data();
-                    qDebug() << "SSDP Server answer to:" << dg.senderAddress().toString();
-                    socket_->writeDatagram(resp_.to_string().c_str(), dg.senderAddress(), dg.senderPort());
+                    auto tmp = resp_;
+                    tmp.location = str.toLatin1().data();
+                    //                    qDebug() << "SSDP Server answer to:" << dg.senderAddress().toString();
+                    socket_->writeDatagram(tmp.to_string().c_str(), dg.senderAddress(), dg.senderPort());
                     break;
                 }
             }
