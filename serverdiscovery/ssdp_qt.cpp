@@ -28,7 +28,7 @@ ssdp::qt::Client::Client(QObject* parent)
     }
 }
 
-QString ssdp::qt::Client::findConnetionString(const QString& type, const QString& name, const QString& details, int timeout_ms)
+QString ssdp::qt::Client::findConnetionString(const QString& type, const QString& name, const QString& details, uint32_t timeout_ms)
 {
     QString ret;
     auto list = findAllServers_(type, name, details, timeout_ms, true);
@@ -38,7 +38,7 @@ QString ssdp::qt::Client::findConnetionString(const QString& type, const QString
     return ret;
 }
 
-QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers(const QString& type, const QString& name, const QString& details, int timeout_ms)
+QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers(const QString& type, const QString& name, const QString& details, uint32_t timeout_ms)
 {
     return findAllServers_(type, name, details, timeout_ms, false);
 }
