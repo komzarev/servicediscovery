@@ -87,7 +87,7 @@ namespace asio
             }
         }
 
-        std::string findConnetionString(const std::string& type, const std::string& name, const std::string& details, int timeout_ms = 500)
+        std::string findConnetionString(const std::string& type, const std::string& name, const std::string& details, uint32_t timeout_ms = 500)
         {
             std::string ret;
             auto list = findAllServers_(type, name, details, timeout_ms, true);
@@ -97,13 +97,13 @@ namespace asio
             return ret;
         }
 
-        std::vector<ServerInfo> findAllServers(const std::string& type, const std::string& name, const std::string& details, int timeout_ms = 500)
+        std::vector<ServerInfo> findAllServers(const std::string& type, const std::string& name, const std::string& details, uint32_t timeout_ms = 500)
         {
             return findAllServers_(type, name, details, timeout_ms, false);
         }
 
     private:
-        std::vector<ServerInfo> findAllServers_(const std::string& type, const std::string& name, const std::string& details, int timeout_ms, bool onlyOne);
+        std::vector<ServerInfo> findAllServers_(const std::string& type, const std::string& name, const std::string& details, uint32_t timeout_ms, bool onlyOne);
 
         void startRecieve_(std::vector<ServerInfo>& ret, bool onlyOne, UdpSocket* socket);
         bool sent(const std::string& type, const std::string& name, const std::string& details);

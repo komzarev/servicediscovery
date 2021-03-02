@@ -105,7 +105,7 @@ namespace qt
         // Parameter: const QString & type
         // Parameter: const QString & name
         // Parameter: const QString & details
-        // Parameter: int timeout_ms
+        // Parameter: uint32_t timeout_ms
         // Find connection string for first matched server, blocks for timeout_ms or until server found
         //************************************
         QString findConnetionString(const QString& type, const QString& name, const QString& details, uint32_t timeout_ms = 500);
@@ -118,7 +118,7 @@ namespace qt
         // Parameter: const QString & type
         // Parameter: const QString & name
         // Parameter: const QString & details
-        // Parameter: int timeout_ms
+        // Parameter: uint32_t timeout_ms
         // Returns all matched server which responded during timeout_ms, always blocks for timeout_ms
         //************************************
         QList<ServerInfo> findAllServers(const QString& type, const QString& name, const QString& details, uint32_t timeout_ms = 500);

@@ -93,7 +93,7 @@ ssdp::asio::Client::Client()
     }
 }
 
-std::vector<ssdp::asio::Client::ServerInfo> ssdp::asio::Client::findAllServers_(const std::string& type, const std::string& name, const std::string& details, int timeout_ms, bool onlyOne)
+std::vector<ssdp::asio::Client::ServerInfo> ssdp::asio::Client::findAllServers_(const std::string& type, const std::string& name, const std::string& details, uint32_t timeout_ms, bool onlyOne)
 {
     std::vector<ServerInfo> ret;
     if (!sent(type, name, details)) {
