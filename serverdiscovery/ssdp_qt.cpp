@@ -38,6 +38,37 @@ QString ssdp::qt::Client::findConnetionString(const QString& type, const QString
     return ret;
 }
 
+bool ssdp::qt::Client::isLocal(const QString &socketString)
+{
+    auto tmp = socketString.split(":");
+    if(tmp.size() != 2){
+        return false;
+    }
+
+    auto fromHost = QHostAddress(tmp[0]);
+
+    auto list = QNetworkInterface::allInterfaces();
+    for (auto iface : list) {
+        auto flgs = iface.flags();
+        if (flgs.testFlag(QNetworkInterface::IsRunning)) {
+
+            auto ips = iface.addressEntries();
+            if (ips.empty()) {
+                continue;
+            }
+
+            for (auto ip : ips) {
+
+                if (ip.ip() == fromHost) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+
 QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers(const QString& type, const QString& name, const QString& details, uint32_t timeout_ms)
 {
     return findAllServers_(type, name, details, timeout_ms, false);
