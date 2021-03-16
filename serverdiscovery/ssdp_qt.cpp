@@ -7,7 +7,7 @@ ssdp::qt::Client::Client(QObject* parent)
 {
 
     auto list = QNetworkInterface::allInterfaces();
-    for (auto iface : list) {
+    for (const auto& iface : qAsConst(list)) {
         auto flgs = iface.flags();
         if (flgs.testFlag(QNetworkInterface::CanMulticast) && flgs.testFlag(QNetworkInterface::IsRunning)) {
 
@@ -16,7 +16,7 @@ ssdp::qt::Client::Client(QObject* parent)
                 continue;
             }
 
-            for (auto ip : ips) {
+            for (const auto& ip : qAsConst(ips)) {
                 if (ip.ip().protocol() == QAbstractSocket::IPv4Protocol) {
                     auto socket = new QUdpSocket(this);
                     socket->bind(ip.ip(), 0, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint);
@@ -38,17 +38,17 @@ QString ssdp::qt::Client::findConnetionString(const QString& type, const QString
     return ret;
 }
 
-bool ssdp::qt::Client::isLocal(const QString &socketString)
+bool ssdp::qt::Client::isLocal(const QString& socketString)
 {
     auto tmp = socketString.split(":");
-    if(tmp.size() != 2){
+    if (tmp.size() != 2) {
         return false;
     }
 
     auto fromHost = QHostAddress(tmp[0]);
 
     auto list = QNetworkInterface::allInterfaces();
-    for (auto iface : list) {
+    for (const auto& iface : qAsConst(list)) {
         auto flgs = iface.flags();
         if (flgs.testFlag(QNetworkInterface::IsRunning)) {
 
@@ -57,7 +57,7 @@ bool ssdp::qt::Client::isLocal(const QString &socketString)
                 continue;
             }
 
-            for (auto ip : ips) {
+            for (const auto& ip : qAsConst(ips)) {
 
                 if (ip.ip() == fromHost) {
                     return true;
@@ -88,7 +88,8 @@ QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers_(const QStr
         for (auto& s : sockets) {
             if (s->hasPendingDatagrams()) {
                 auto dg = s->receiveDatagram();
-                auto res = Response::from_string(dg.data().data());
+                auto ba = dg.data();
+                auto res = Response::from_string(ba.data());
                 if (res.has_value()) {
                     ServerInfo si;
                     si.socketString = QString::fromStdString(res->location);
@@ -132,10 +133,13 @@ bool ssdp::qt::Server::start(const QString& name, const QString& details)
     auto list = QNetworkInterface::allInterfaces();
     QHostAddress groupAddress("239.255.255.250");
     bool result = true;
-    for (auto iface : list) {
+    for (auto& iface : list) {
         auto flgs = iface.flags();
         if (flgs.testFlag(QNetworkInterface::CanMulticast) && flgs.testFlag(QNetworkInterface::IsRunning)) {
             result &= socket_->joinMulticastGroup(groupAddress, iface);
+            if (isDebugMode_) {
+                qInfo() << "[SSDP][INFO]: Join multicast on:" << iface.name();
+            }
         }
     }
 
@@ -161,16 +165,21 @@ void ssdp::qt::Server::processDatagram(const QNetworkDatagram& dg)
             auto iface = QNetworkInterface::interfaceFromIndex(dg.interfaceIndex());
             auto ips = iface.addressEntries();
             if (ips.empty()) {
-                //should never happen
+                if (isDebugMode_) {
+                    qWarning() << "[SSDP][ERROR]:  " << iface.name() << "has no entries";
+                }
                 return;
             }
 
-            for (auto ip : ips) {
+            for (const auto& ip : qAsConst(ips)) {
                 if (ip.ip().protocol() == QAbstractSocket::IPv4Protocol) {
                     auto str = ip.ip().toString() + ":" + port_;
                     auto tmp = resp_;
                     tmp.location = str.toLatin1().data();
-                    //                    qDebug() << "SSDP Server answer to:" << dg.senderAddress().toString();
+                    if (isDebugMode_) {
+                        qInfo() << "[SSDP][INFO]: Answer to:" << dg.senderAddress().toString();
+                    }
+
                     socket_->writeDatagram(tmp.to_string().c_str(), dg.senderAddress(), dg.senderPort());
                     break;
                 }

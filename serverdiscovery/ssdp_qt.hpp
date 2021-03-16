@@ -31,6 +31,10 @@ namespace qt
             stop();
         }
 
+        void setDebugMode(bool isDebug)
+        {
+            isDebugMode_ = isDebug;
+        }
         //************************************
         // Method:    start
         // FullName:  ssdp::qt::Server::start
@@ -76,7 +80,7 @@ namespace qt
 
     private:
         void processDatagram(const QNetworkDatagram& dg);
-
+        bool isDebugMode_ = false;
         Response resp_;
         QUdpSocket* socket_ = nullptr;
         QString port_;
@@ -123,7 +127,8 @@ namespace qt
         //************************************
         QList<ServerInfo> findAllServers(const QString& type, const QString& name, const QString& details, uint32_t timeout_ms = 500);
 
-        static bool isLocal(const QString &socketString);
+        static bool isLocal(const QString& socketString);
+
     private:
         QList<ServerInfo> findAllServers_(const QString& type, const QString& name, const QString& details, int timeout_ms, bool onlyOnce);
 
