@@ -38,10 +38,10 @@ QString ssdp::qt::Client::findConnetionString(const QString& type, const QString
     return ret;
 }
 
-bool ssdp::qt::Client::isLocal(const QString &socketString)
+bool ssdp::qt::Client::isLocal(const QString& socketString)
 {
     auto tmp = socketString.split(":");
-    if(tmp.size() != 2){
+    if (tmp.size() != 2) {
         return false;
     }
 
@@ -121,6 +121,22 @@ bool ssdp::qt::Client::sent(const QString& type, const QString& name, const QStr
     return true;
 }
 
+void ssdp::qt::Server::updateInterfacesList()
+{
+    auto list = QNetworkInterface::allInterfaces();
+    QHostAddress groupAddress("239.255.255.250");
+    for (auto iface : list) {
+        auto flgs = iface.flags();
+        if (flgs.testFlag(QNetworkInterface::CanMulticast) && flgs.testFlag(QNetworkInterface::IsRunning)) {
+            auto iname = iface.name();
+            if (!joinedInterfaces_.contains(iname)) {
+                joinedInterfaces_.push_back(iname);
+                socket_->joinMulticastGroup(groupAddress, iface);
+            }
+        }
+    }
+}
+
 bool ssdp::qt::Server::start(const QString& name, const QString& details)
 {
     if (port_.isEmpty()) {
@@ -129,25 +145,26 @@ bool ssdp::qt::Server::start(const QString& name, const QString& details)
     socket_ = new QUdpSocket(this);
     socket_->bind(QHostAddress::AnyIPv4, 1900, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint);
 
-    auto list = QNetworkInterface::allInterfaces();
-    QHostAddress groupAddress("239.255.255.250");
-    bool result = true;
-    for (auto iface : list) {
-        auto flgs = iface.flags();
-        if (flgs.testFlag(QNetworkInterface::CanMulticast) && flgs.testFlag(QNetworkInterface::IsRunning)) {
-            result &= socket_->joinMulticastGroup(groupAddress, iface);
-        }
-    }
+    updateInterfacesList();
 
     connect(socket_, &QUdpSocket::readyRead, this, &Server::readPendingDatagrams);
 
     resp_.servername = name.toLatin1().data();
     resp_.serverdetails = details.toLatin1().data();
-    return result;
+
+    updateInterfaceListTimer_.setInterval(10000);
+
+    connect(&updateInterfaceListTimer_, &QTimer::timeout, this, [this] {
+        updateInterfacesList();
+    });
+
+    updateInterfaceListTimer_.start();
+    return true;
 }
 
 void ssdp::qt::Server::stop()
 {
+    updateInterfaceListTimer_.stop();
     socket_->close();
     delete socket_;
     socket_ = nullptr;

@@ -6,6 +6,7 @@
 #include <QNetworkDatagram>
 #include <QNetworkInterface>
 #include <QObject>
+#include <QTimer>
 
 #include "ssdp_message.hpp"
 #include <QUdpSocket>
@@ -65,6 +66,8 @@ namespace qt
             port_ = port;
         }
 
+        void updateInterfacesList();
+
     private slots:
         void readPendingDatagrams()
         {
@@ -80,6 +83,8 @@ namespace qt
         Response resp_;
         QUdpSocket* socket_ = nullptr;
         QString port_;
+        QStringList joinedInterfaces_;
+        QTimer updateInterfaceListTimer_;
     };
 
     class Client : public QObject
@@ -123,7 +128,8 @@ namespace qt
         //************************************
         QList<ServerInfo> findAllServers(const QString& type, const QString& name, const QString& details, uint32_t timeout_ms = 500);
 
-        static bool isLocal(const QString &socketString);
+        static bool isLocal(const QString& socketString);
+
     private:
         QList<ServerInfo> findAllServers_(const QString& type, const QString& name, const QString& details, int timeout_ms, bool onlyOnce);
 
