@@ -2,10 +2,8 @@
 
 #include <QThread>
 
-ssdp::qt::Client::Client(QObject* parent)
-    : QObject(parent)
+void ssdp::qt::Client::updateInterfaces_()
 {
-
     auto list = QNetworkInterface::allInterfaces();
     for (const auto& iface : qAsConst(list)) {
         auto flgs = iface.flags();
@@ -16,16 +14,25 @@ ssdp::qt::Client::Client(QObject* parent)
                 continue;
             }
 
-            for (const auto& ip : qAsConst(ips)) {
-                if (ip.ip().protocol() == QAbstractSocket::IPv4Protocol) {
-                    auto socket = new QUdpSocket(this);
-                    socket->bind(ip.ip(), 0, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint);
-                    sockets.emplace_back(socket);
-                    break;
+            auto iname = iface.name();
+            if (!joinedInterfaces_.contains(iname)) {
+                joinedInterfaces_.push_back(iname);
+                for (const auto& ip : qAsConst(ips)) {
+                    if (ip.ip().protocol() == QAbstractSocket::IPv4Protocol) {
+                        auto socket = new QUdpSocket(this);
+                        socket->bind(ip.ip(), 0, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint);
+                        sockets.emplace_back(socket);
+                        break;
+                    }
                 }
             }
         }
     }
+}
+
+ssdp::qt::Client::Client(QObject* parent)
+    : QObject(parent)
+{
 }
 
 QString ssdp::qt::Client::findConnetionString(const QString& type, const QString& name, const QString& details, uint32_t timeout_ms)
@@ -76,6 +83,8 @@ QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers(const QStri
 
 QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers_(const QString& type, const QString& name, const QString& details, int timeout_ms, bool onlyOnce)
 {
+    updateInterfaces_();
+
     QList<ServerInfo> ret;
     if (!sent(type, name, details)) {
         return ret;
@@ -126,12 +135,15 @@ void ssdp::qt::Server::updateInterfacesList()
 {
     auto list = QNetworkInterface::allInterfaces();
     QHostAddress groupAddress("239.255.255.250");
-    for (auto iface : list) {
+    for (const auto& iface : qAsConst(list)) {
         auto flgs = iface.flags();
         if (flgs.testFlag(QNetworkInterface::CanMulticast) && flgs.testFlag(QNetworkInterface::IsRunning)) {
             auto iname = iface.name();
             if (!joinedInterfaces_.contains(iname)) {
                 joinedInterfaces_.push_back(iname);
+                if (isDebugMode_) {
+                    qInfo() << "[SSDP][INFO]:  Join" << iface.name();
+                }
                 socket_->joinMulticastGroup(groupAddress, iface);
             }
         }
@@ -146,18 +158,7 @@ bool ssdp::qt::Server::start(const QString& name, const QString& details)
     socket_ = new QUdpSocket(this);
     socket_->bind(QHostAddress::AnyIPv4, 1900, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint);
 
-    auto list = QNetworkInterface::allInterfaces();
-    QHostAddress groupAddress("239.255.255.250");
-    bool result = true;
-    for (auto& iface : list) {
-        auto flgs = iface.flags();
-        if (flgs.testFlag(QNetworkInterface::CanMulticast) && flgs.testFlag(QNetworkInterface::IsRunning)) {
-            result &= socket_->joinMulticastGroup(groupAddress, iface);
-            if (isDebugMode_) {
-                qInfo() << "[SSDP][INFO]: Join multicast on:" << iface.name();
-            }
-        }
-    }
+    updateInterfacesList();
 
     connect(socket_, &QUdpSocket::readyRead, this, &Server::readPendingDatagrams);
 

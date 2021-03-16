@@ -135,10 +135,11 @@ namespace qt
         static bool isLocal(const QString& socketString);
 
     private:
+        void updateInterfaces_();
         QList<ServerInfo> findAllServers_(const QString& type, const QString& name, const QString& details, int timeout_ms, bool onlyOnce);
 
         bool sent(const QString& type, const QString& name, const QString& details);
-
+        QStringList joinedInterfaces_;
         std::vector<std::unique_ptr<QUdpSocket>> sockets;
     };
 }
