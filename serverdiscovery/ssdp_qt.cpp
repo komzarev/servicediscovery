@@ -122,6 +122,22 @@ bool ssdp::qt::Client::sent(const QString& type, const QString& name, const QStr
     return true;
 }
 
+void ssdp::qt::Server::updateInterfacesList()
+{
+    auto list = QNetworkInterface::allInterfaces();
+    QHostAddress groupAddress("239.255.255.250");
+    for (auto iface : list) {
+        auto flgs = iface.flags();
+        if (flgs.testFlag(QNetworkInterface::CanMulticast) && flgs.testFlag(QNetworkInterface::IsRunning)) {
+            auto iname = iface.name();
+            if (!joinedInterfaces_.contains(iname)) {
+                joinedInterfaces_.push_back(iname);
+                socket_->joinMulticastGroup(groupAddress, iface);
+            }
+        }
+    }
+}
+
 bool ssdp::qt::Server::start(const QString& name, const QString& details)
 {
     if (port_.isEmpty()) {
@@ -147,11 +163,20 @@ bool ssdp::qt::Server::start(const QString& name, const QString& details)
 
     resp_.servername = name.toLatin1().data();
     resp_.serverdetails = details.toLatin1().data();
-    return result;
+
+    updateInterfaceListTimer_.setInterval(10000);
+
+    connect(&updateInterfaceListTimer_, &QTimer::timeout, this, [this] {
+        updateInterfacesList();
+    });
+
+    updateInterfaceListTimer_.start();
+    return true;
 }
 
 void ssdp::qt::Server::stop()
 {
+    updateInterfaceListTimer_.stop();
     socket_->close();
     delete socket_;
     socket_ = nullptr;
