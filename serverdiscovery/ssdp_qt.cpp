@@ -133,6 +133,20 @@ bool ssdp::qt::Client::sent(const QString& type, const QString& name, const QStr
 
 void ssdp::qt::Server::updateInterfacesList()
 {
+#ifndef _WIN32
+    if (socket_ != nullptr) {
+        socket_->close();
+        delete socket_;
+        socket_ = nullptr;
+    }
+#endif
+
+    if (socket_ == nullptr) {
+        socket_ = new QUdpSocket(this);
+        socket_->bind(QHostAddress::AnyIPv4, 1900, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint);
+        connect(socket_, &QUdpSocket::readyRead, this, &Server::readPendingDatagrams);
+    }
+
     auto list = QNetworkInterface::allInterfaces();
     QHostAddress groupAddress("239.255.255.250");
     for (const auto& iface : qAsConst(list)) {
@@ -155,8 +169,6 @@ bool ssdp::qt::Server::start(const QString& name, const QString& details)
     if (port_.isEmpty()) {
         return false;
     }
-    socket_ = new QUdpSocket(this);
-    socket_->bind(QHostAddress::AnyIPv4, 1900, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint);
 
     updateInterfacesList();
 
