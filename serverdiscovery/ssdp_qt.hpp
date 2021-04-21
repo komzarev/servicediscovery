@@ -16,6 +16,24 @@ namespace ssdp
 {
 namespace qt
 {
+    class Logger
+    {
+    public:
+        void info(const QString& msg);
+        void error(const QString& msg);
+        void setDebugMode(bool isDebug)
+        {
+            isDebugMode_ = isDebug;
+        }
+        bool isDebugMode() const
+        {
+            return isDebugMode_;
+        }
+
+    private:
+        bool isDebugMode_ = false;
+    };
+
     class Server : public QObject
     {
         Q_OBJECT
@@ -34,7 +52,7 @@ namespace qt
 
         void setDebugMode(bool isDebug)
         {
-            isDebugMode_ = isDebug;
+            log.setDebugMode(isDebug);
         }
         //************************************
         // Method:    start
@@ -83,12 +101,12 @@ namespace qt
 
     private:
         void processDatagram(const QNetworkDatagram& dg);
-        bool isDebugMode_ = false;
         Response resp_;
         QUdpSocket* socket_ = nullptr;
         QString port_;
         QStringList joinedInterfaces_;
         QTimer updateInterfaceListTimer_;
+        Logger log;
     };
 
     class Client : public QObject
@@ -134,13 +152,18 @@ namespace qt
 
         static bool isLocal(const QString& socketString);
 
+        void setDebugMode(bool isDebug)
+        {
+            log.setDebugMode(isDebug);
+        }
+
     private:
         void updateInterfaces_();
         QList<ServerInfo> findAllServers_(const QString& type, const QString& name, const QString& details, int timeout_ms, bool onlyOnce);
-
         bool sent(const QString& type, const QString& name, const QString& details);
         QStringList joinedInterfaces_;
         std::vector<std::unique_ptr<QUdpSocket>> sockets;
+        Logger log;
     };
 }
 }

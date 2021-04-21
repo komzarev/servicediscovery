@@ -2,6 +2,20 @@
 
 #include <QThread>
 
+void ssdp::qt::Logger::info(const QString& msg)
+{
+    if (isDebugMode_) {
+        qInfo() << "[SSDP][INFO]: " << msg;
+    }
+}
+
+void ssdp::qt::Logger::error(const QString& msg)
+{
+    if (isDebugMode_) {
+        qWarning() << "[SSDP][ERROR]: " << msg;
+    }
+}
+
 void ssdp::qt::Client::updateInterfaces_()
 {
     auto list = QNetworkInterface::allInterfaces();
@@ -20,8 +34,15 @@ void ssdp::qt::Client::updateInterfaces_()
                 for (const auto& ip : qAsConst(ips)) {
                     if (ip.ip().protocol() == QAbstractSocket::IPv4Protocol) {
                         auto socket = new QUdpSocket(this);
-                        socket->bind(ip.ip(), 0, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint);
-                        sockets.emplace_back(socket);
+                        bool bindRes = socket->bind(ip.ip(), 0, QUdpSocket::ShareAddress | QUdpSocket::ReuseAddressHint);
+
+                        if (bindRes) {
+                            log.info("Join interface: " + ip.ip().toString());
+                            sockets.emplace_back(socket);
+                        } else {
+                            log.error("Join interface: " + ip.ip().toString() + " Failed!");
+                            delete socket;
+                        }
                         break;
                     }
                 }
@@ -87,6 +108,7 @@ QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers_(const QStr
 
     QList<ServerInfo> ret;
     if (!sent(type, name, details)) {
+        log.error("All sent attempts FAILED");
         return ret;
     }
 
@@ -106,6 +128,7 @@ QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers_(const QStr
                     si.type = QString::fromStdString(res->servertype);
                     si.details = QString::fromStdString(res->serverdetails);
                     ret.push_back(si);
+                    log.info("Get replay from: " + si.socketString);
                     if (onlyOnce) {
                         return ret;
                     }
@@ -124,11 +147,23 @@ bool ssdp::qt::Client::sent(const QString& type, const QString& name, const QStr
     Request req(type.toLatin1().data(), name.toLatin1().data(), details.toLatin1().data());
     auto str = req.to_string();
 
+    bool ret = false;
     for (auto& s : sockets) {
-        s->writeDatagram(str.c_str(), str.size(), QHostAddress("239.255.255.250"), 1900);
+        bool fail = -1 == s->writeDatagram(str.c_str(), str.size(), QHostAddress("239.255.255.250"), 1900);
+        if (log.isDebugMode()) {
+            if (fail) {
+                log.error("Sent request to: " + s->localAddress().toString() + " FAILED: " + s->errorString());
+                log.error("Error: " + QVariant::fromValue(s->error()).toString());
+                log.error("Socket state: " + QVariant::fromValue(s->state()).toString());
+            } else {
+                log.info("Sent request to: " + s->localAddress().toString());
+            }
+        }
+        // only if all fails, return false
+        ret |= !fail;
     }
 
-    return true;
+    return ret;
 }
 
 void ssdp::qt::Server::updateInterfacesList()
@@ -138,6 +173,7 @@ void ssdp::qt::Server::updateInterfacesList()
         socket_->close();
         delete socket_;
         socket_ = nullptr;
+        joinedInterfaces_.clear();
     }
 #endif
 
@@ -155,9 +191,7 @@ void ssdp::qt::Server::updateInterfacesList()
             auto iname = iface.name();
             if (!joinedInterfaces_.contains(iname)) {
                 joinedInterfaces_.push_back(iname);
-                if (isDebugMode_) {
-                    qInfo() << "[SSDP][INFO]:  Join" << iface.name();
-                }
+                log.info("Join interface: " + iface.humanReadableName());
                 socket_->joinMulticastGroup(groupAddress, iface);
             }
         }
@@ -167,6 +201,7 @@ void ssdp::qt::Server::updateInterfacesList()
 bool ssdp::qt::Server::start(const QString& name, const QString& details)
 {
     if (port_.isEmpty()) {
+        log.error("Service port was not specified");
         return false;
     }
 
@@ -203,9 +238,7 @@ void ssdp::qt::Server::processDatagram(const QNetworkDatagram& dg)
             auto iface = QNetworkInterface::interfaceFromIndex(dg.interfaceIndex());
             auto ips = iface.addressEntries();
             if (ips.empty()) {
-                if (isDebugMode_) {
-                    qWarning() << "[SSDP][ERROR]:  " << iface.name() << "has no entries";
-                }
+                log.error(iface.name() + " has no entries");
                 return;
             }
 
@@ -214,10 +247,7 @@ void ssdp::qt::Server::processDatagram(const QNetworkDatagram& dg)
                     auto str = ip.ip().toString() + ":" + port_;
                     auto tmp = resp_;
                     tmp.location = str.toLatin1().data();
-                    if (isDebugMode_) {
-                        qInfo() << "[SSDP][INFO]: Answer to:" << dg.senderAddress().toString();
-                    }
-
+                    log.info("Sent answer to: " + dg.senderAddress().toString() + ":" + QString::number(dg.senderPort()));
                     socket_->writeDatagram(tmp.to_string().c_str(), dg.senderAddress(), dg.senderPort());
                     break;
                 }
