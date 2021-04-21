@@ -80,6 +80,7 @@ ssdp::asio::Client::Client()
         if (addr.address().is_v4()) {
 
             try {
+                std::cout << "Try bind to: " << addr.address().to_string() << "\n";
                 auto socket = new UdpSocket(io_service_);
                 socket->socket.open(boost::asio::ip::udp::v4());
                 socket->socket.bind(udp::endpoint(addr.address(), 0));
@@ -149,7 +150,8 @@ bool ssdp::asio::Client::sent(const std::string& type, const std::string& name, 
     Request req(type, name, details);
 
     std::shared_ptr<std::string> message(new std::string(req.to_string()));
-    udp::endpoint endpoint(address_v4::from_string("239.255.255.250"), 1900);
+    //    udp::endpoint endpoint(address_v4::from_string("239.255.255.250"), 1900);
+    udp::endpoint endpoint(address_v4::from_string("255.255.255.255"), 1900);
     try {
         for (auto& s : sockets_) {
             s->socket.send_to(boost::asio::buffer(*message), endpoint);
