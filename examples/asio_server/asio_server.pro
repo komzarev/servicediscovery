@@ -4,8 +4,6 @@ INCLUDEPATH += $$PWD/../../dep/optional/include
 CONFIG += c++11 console
 CONFIG -= app_bundle
 CONFIG -= qt
-!win32:QMAKE_CXXFLAGS += -fPIC
-
 
 # You can make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
@@ -22,3 +20,5 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 DEFINES += BOOST_ASIO_STANDALONE BOOST_ASIO_SEPARATE_COMPILATION
 INCLUDEPATH += $$PWD/../../dep/boost-ho/include
 qnx7: INCLUDEPATH += -isystem $$PWD/../../dep/boost-ho/qnx7
+qnx: LIBS += -lsocket
+
