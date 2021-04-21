@@ -5,6 +5,7 @@ int main(int argc, char* argv[])
 {
     QCoreApplication a(argc, argv);
     ssdp::qt::Server server("mpnet_server");
+    server.setDebugMode(true);
     server.setServicePort(QString::number(5757));
     if (!server.start("", QString::number(57))) {
         qDebug() << "Fail to start";

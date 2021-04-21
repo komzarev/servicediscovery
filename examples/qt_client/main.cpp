@@ -7,8 +7,9 @@ int main(int argc, char* argv[])
     QCoreApplication a(argc, argv);
 
     ssdp::qt::Client client;
+    client.setDebugMode(true);
     while (true) {
-        auto list = client.findAllServers("mpnet_server", "", "", 1000);
+        auto list = client.findAllServers("mpnet_server", "", "", 5000);
         if (list.isEmpty()) {
             qDebug() << "No servers";
         } else {
