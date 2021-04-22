@@ -110,9 +110,9 @@ QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers_(const QStr
     if (!sent(type, name, details)) {
 //added for Masha
 #ifdef __QNXNTO__
-        qWarning("[SSDP][ERROR]: Can't send request, route entry is missed? Add this command to start script: \n\n"
-                 "\t\troute add 239.0.0.0/8 192.168.50.255\n"
-                 "And then restart. Also check firewall ruls on Windows for mpnet-server!\n");
+        qWarning("[SSDP][ERROR]: Can't send request, route entry is missed? Add this command to the start script: \n\n"
+                 "\t\troute add 239.0.0.0/8 192.168.50.255\n\n"
+                 "\t\tAnd then restart. Also check firewall ruls on Windows for mpnet-server!\n");
 #endif
 
         log.error("All sent attempts FAILED");
