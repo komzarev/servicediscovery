@@ -108,6 +108,13 @@ QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers_(const QStr
 
     QList<ServerInfo> ret;
     if (!sent(type, name, details)) {
+//added for Masha
+#ifdef __QNXNTO__
+        qWarning("[SSDP][ERROR]: Can't send request, route entry is missed? Add this command to start script: \n\n"
+                 "\t\troute add 239.0.0.0/8 192.168.50.255\n"
+                 "And then restart. Also check firewall ruls on Windows for mpnet-server!\n");
+#endif
+
         log.error("All sent attempts FAILED");
         return ret;
     }
@@ -139,6 +146,13 @@ QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers_(const QStr
         }
     }
 
+//added for Masha
+#ifdef __QNXNTO__
+    if (ret.isEmpty()) {
+        qWarning("[SSDP][ERROR]: Can't find server. Check firewall ruls on Windows for mpnet-server!");
+    }
+
+#endif
     return ret;
 }
 
