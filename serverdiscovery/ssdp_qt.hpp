@@ -5,6 +5,7 @@
 #include <QTimer>
 #include <QUdpSocket>
 #include <memory>
+#include <vector>
 
 namespace ssdp
 {
