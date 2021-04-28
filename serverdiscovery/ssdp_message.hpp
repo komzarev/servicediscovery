@@ -4,7 +4,15 @@
 #include "string_find.h"
 #include "string_format.h"
 #include "string_trim.h"
+#ifdef TL_OPTIONAL
 #include "tl/optional.hpp"
+using tl::nullopt;
+using tl::optional;
+#else
+#include <optional>
+using std::nullopt;
+using std::optional;
+#endif
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -36,13 +44,13 @@ public:
 
     Request() = default;
 
-    static tl::optional<Request> from_string(const std::string& str)
+    static optional<Request> from_string(const std::string& str)
     {
         using namespace rl::str;
 
         Request ret;
         if (str.rfind("M-SEARCH", 0) != 0 || str.find("MAN: \"ssdp:discover\"") == std::string::npos) {
-            return tl::nullopt;
+            return nullopt;
         }
 
         auto urnpos = position_after(str, "ST: urn:");
@@ -50,7 +58,7 @@ public:
         ret.servername = get_until(str, ":", urnpos);
         ret.serverdetails = get_until(str, "\n", urnpos);
         if (urnpos == std::string::npos) {
-            return tl::nullopt;
+            return nullopt;
         }
 
         trim(ret.servername);
@@ -91,13 +99,13 @@ public:
 
     Response() = default;
 
-    static tl::optional<Response> from_string(const std::string& str)
+    static optional<Response> from_string(const std::string& str)
     {
         using namespace rl::str;
 
         Response ret;
         if (str.rfind("HTTP/1.1 200 OK", 0) != 0 || str.find("NTS: ssdp:alive") == std::string::npos) {
-            return tl::nullopt;
+            return nullopt;
         }
 
         auto urnpos = position_after(str, "ST: urn:");
@@ -105,13 +113,13 @@ public:
         ret.servername = get_until(str, ":", urnpos);
         ret.serverdetails = get_until(str, "\n", urnpos);
         if (urnpos == std::string::npos) {
-            return tl::nullopt;
+            return nullopt;
         }
 
         urnpos = position_after(str, "LOCATION: http://");
         ret.location = get_until(str, "\n", urnpos);
         if (urnpos == std::string::npos) {
-            return tl::nullopt;
+            return nullopt;
         }
 
         trim(ret.servername);
