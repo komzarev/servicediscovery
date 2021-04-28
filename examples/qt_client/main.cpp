@@ -9,7 +9,7 @@ int main(int argc, char* argv[])
     ssdp::qt::Client client;
     client.setDebugMode(true);
     while (true) {
-        auto list = client.findAllServers("mpnet_server", "", "", 5000);
+        auto list = client.resolve("mpnet_server", "", "", 5000);
         if (list.isEmpty()) {
             qDebug() << "No servers";
         } else {

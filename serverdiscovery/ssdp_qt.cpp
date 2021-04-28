@@ -1,5 +1,7 @@
 #include "ssdp_qt.hpp"
-
+#include "ssdp_message.hpp"
+#include <QDeadlineTimer>
+#include <QNetworkInterface>
 #include <QThread>
 
 void ssdp::qt::Logger::info(const QString& msg)
@@ -56,16 +58,6 @@ ssdp::qt::Client::Client(QObject* parent)
 {
 }
 
-QString ssdp::qt::Client::findConnetionString(const QString& type, const QString& name, const QString& details, uint32_t timeout_ms)
-{
-    QString ret;
-    auto list = findAllServers_(type, name, details, timeout_ms, true);
-    if (!list.isEmpty()) {
-        ret = list[0].socketString;
-    }
-    return ret;
-}
-
 bool ssdp::qt::Client::isLocal(const QString& socketString)
 {
     auto tmp = socketString.split(":");
@@ -97,18 +89,17 @@ bool ssdp::qt::Client::isLocal(const QString& socketString)
     return false;
 }
 
-QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers(const QString& type, const QString& name, const QString& details, uint32_t timeout_ms)
+void ssdp::qt::Client::setDebugMode(bool isDebug)
 {
-    return findAllServers_(type, name, details, timeout_ms, false);
+    log.setDebugMode(isDebug);
 }
 
-QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers_(const QString& type, const QString& name, const QString& details, int timeout_ms, bool onlyOnce)
+QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::resolve(const QString& serviceType, const QString& serviceName, const QString& serviceDetails, uint32_t timeout_ms)
 {
     updateInterfaces_();
 
     QList<ServerInfo> ret;
-    if (!sent(type, name, details)) {
-//added for Masha
+    if (!sent(serviceType, serviceName, serviceDetails)) {
 #ifdef __QNXNTO__
         qWarning("[SSDP][ERROR]: Can't send request, route entry is missed? Add this command to the start script: \n\n"
                  "\t\troute add 239.0.0.0/8 192.168.50.255\n\n"
@@ -136,9 +127,6 @@ QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers_(const QStr
                     si.details = QString::fromStdString(res->serverdetails);
                     ret.push_back(si);
                     log.info("Get replay from: " + si.socketString);
-                    if (onlyOnce) {
-                        return ret;
-                    }
                 }
             } else {
                 QThread::msleep(60);
@@ -146,7 +134,6 @@ QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::findAllServers_(const QStr
         }
     }
 
-//added for Masha
 #ifdef __QNXNTO__
     if (ret.isEmpty()) {
         qWarning("[SSDP][ERROR]: Can't find server. Check firewall ruls on Windows for mpnet-server!");
@@ -212,6 +199,31 @@ void ssdp::qt::Server::updateInterfacesList()
     }
 }
 
+void ssdp::qt::Server::readPendingDatagrams()
+{
+    while (socket_->hasPendingDatagrams()) {
+        auto datagram = socket_->receiveDatagram();
+        processDatagram(datagram);
+    }
+}
+
+ssdp::qt::Server::Server(const QString& type, QObject* parent)
+    : QObject(parent)
+{
+    resp_.reset(new Response());
+    resp_->servertype = type.toLatin1().data();
+}
+
+ssdp::qt::Server::~Server()
+{
+    stop();
+}
+
+void ssdp::qt::Server::setDebugMode(bool isDebug)
+{
+    log.setDebugMode(isDebug);
+}
+
 bool ssdp::qt::Server::start(const QString& name, const QString& details)
 {
     if (port_.isEmpty()) {
@@ -223,8 +235,8 @@ bool ssdp::qt::Server::start(const QString& name, const QString& details)
 
     connect(socket_, &QUdpSocket::readyRead, this, &Server::readPendingDatagrams);
 
-    resp_.servername = name.toLatin1().data();
-    resp_.serverdetails = details.toLatin1().data();
+    resp_->servername = name.toLatin1().data();
+    resp_->serverdetails = details.toLatin1().data();
 
     updateInterfaceListTimer_.setInterval(10000);
 
@@ -248,7 +260,7 @@ void ssdp::qt::Server::processDatagram(const QNetworkDatagram& dg)
 {
     auto data = dg.data();
     if (auto req = Request::from_string(data.data())) {
-        if (resp_.matchRequest(req.value())) {
+        if (resp_->matchRequest(req.value())) {
             auto iface = QNetworkInterface::interfaceFromIndex(dg.interfaceIndex());
             auto ips = iface.addressEntries();
             if (ips.empty()) {
@@ -259,7 +271,7 @@ void ssdp::qt::Server::processDatagram(const QNetworkDatagram& dg)
             for (const auto& ip : qAsConst(ips)) {
                 if (ip.ip().protocol() == QAbstractSocket::IPv4Protocol) {
                     auto str = ip.ip().toString() + ":" + port_;
-                    auto tmp = resp_;
+                    auto tmp = *resp_;
                     tmp.location = str.toLatin1().data();
                     log.info("Sent answer to: " + dg.senderAddress().toString() + ":" + QString::number(dg.senderPort()));
                     socket_->writeDatagram(tmp.to_string().c_str(), dg.senderAddress(), dg.senderPort());

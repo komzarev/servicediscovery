@@ -1,19 +1,14 @@
-#ifndef QTSERVER_HPP
-#define QTSERVER_HPP
+#ifndef QT_SSDP_SERVER_HPP
+#define QT_SSDP_SERVER_HPP
 
-#include <QDeadlineTimer>
-#include <QElapsedTimer>
 #include <QNetworkDatagram>
-#include <QNetworkInterface>
-#include <QObject>
 #include <QTimer>
-
-#include "ssdp_message.hpp"
 #include <QUdpSocket>
-#include <QtCore/qglobal.h>
+#include <memory>
 
 namespace ssdp
 {
+class Response;
 namespace qt
 {
     class Logger
@@ -39,21 +34,11 @@ namespace qt
         Q_OBJECT
 
     public:
-        Server(const QString& type, QObject* parent = 0)
-            : QObject(parent)
-        {
-            resp_.servertype = type.toLatin1().data();
-        }
+        Server(const QString& type, QObject* parent = 0);
 
-        ~Server()
-        {
-            stop();
-        }
+        ~Server();
 
-        void setDebugMode(bool isDebug)
-        {
-            log.setDebugMode(isDebug);
-        }
+        void setDebugMode(bool isDebug);
         //************************************
         // Method:    start
         // FullName:  ssdp::qt::Server::start
@@ -91,17 +76,11 @@ namespace qt
         void updateInterfacesList();
 
     private slots:
-        void readPendingDatagrams()
-        {
-            while (socket_->hasPendingDatagrams()) {
-                auto datagram = socket_->receiveDatagram();
-                processDatagram(datagram);
-            }
-        }
+        void readPendingDatagrams();
 
     private:
         void processDatagram(const QNetworkDatagram& dg);
-        Response resp_;
+        std::unique_ptr<Response> resp_;
         QUdpSocket* socket_ = nullptr;
         QString port_;
         QStringList joinedInterfaces_;
@@ -125,19 +104,6 @@ namespace qt
         Client(QObject* parent = 0);
 
         //************************************
-        // Method:    findConnetionString
-        // FullName:  ssdp::qt::Client::findConnetionString
-        // Access:    public
-        // Returns:   QString
-        // Parameter: const QString & type
-        // Parameter: const QString & name
-        // Parameter: const QString & details
-        // Parameter: uint32_t timeout_ms
-        // Find connection string for first matched server, blocks for timeout_ms or until server found
-        //************************************
-        QString findConnetionString(const QString& type, const QString& name, const QString& details, uint32_t timeout_ms = 500);
-
-        //************************************
         // Method:    findAllServers
         // FullName:  ssdp::qt::Client::findAllServers
         // Access:    public
@@ -146,20 +112,16 @@ namespace qt
         // Parameter: const QString & name
         // Parameter: const QString & details
         // Parameter: uint32_t timeout_ms
-        // Returns all matched server which responded during timeout_ms, always blocks for timeout_ms
+        // Returns all matched services which responded during timeout_ms, always blocks for timeout_ms
         //************************************
-        QList<ServerInfo> findAllServers(const QString& type, const QString& name, const QString& details, uint32_t timeout_ms = 500);
+        QList<ServerInfo> resolve(const QString& serviceType, const QString& serviceName, const QString& serviceDetails, uint32_t timeout_ms = 5000);
 
         static bool isLocal(const QString& socketString);
 
-        void setDebugMode(bool isDebug)
-        {
-            log.setDebugMode(isDebug);
-        }
+        void setDebugMode(bool isDebug);
 
     private:
         void updateInterfaces_();
-        QList<ServerInfo> findAllServers_(const QString& type, const QString& name, const QString& details, int timeout_ms, bool onlyOnce);
         bool sent(const QString& type, const QString& name, const QString& details);
         QStringList joinedInterfaces_;
         std::vector<std::unique_ptr<QUdpSocket>> sockets;
@@ -168,4 +130,4 @@ namespace qt
 }
 }
 
-#endif // QTSERVER_HPP
+#endif // QT_SSDP_SERVER_HPP
