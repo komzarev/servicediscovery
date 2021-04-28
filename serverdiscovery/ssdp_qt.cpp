@@ -125,6 +125,7 @@ QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::resolve(const QString& ser
                     si.name = QString::fromStdString(res->servername);
                     si.type = QString::fromStdString(res->servertype);
                     si.details = QString::fromStdString(res->serverdetails);
+                    si.isLocal = isLocal(si.socketString);
                     ret.push_back(si);
                     log.info("Get replay from: " + si.socketString);
                 }
@@ -140,6 +141,12 @@ QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::resolve(const QString& ser
     }
 
 #endif
+
+    if (!ret.isEmpty()) {
+        std::sort(std::begin(ret), std::end(ret), [](auto rhs, auto lhs) {
+            return rhs < lhs;
+        });
+    }
     return ret;
 }
 
@@ -280,4 +287,13 @@ void ssdp::qt::Server::processDatagram(const QNetworkDatagram& dg)
             }
         }
     }
+}
+
+bool ssdp::qt::Client::ServerInfo::operator<(const ssdp::qt::Client::ServerInfo& other) const
+{
+    if (isLocal && !other.isLocal) {
+        return true;
+    }
+
+    return socketString < other.socketString;
 }

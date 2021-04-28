@@ -100,6 +100,9 @@ namespace qt
             QString name;
             QString details;
             QString socketString;
+            bool isLocal;
+
+            bool operator<(const ServerInfo& other) const;
         };
 
         Client(QObject* parent = 0);
