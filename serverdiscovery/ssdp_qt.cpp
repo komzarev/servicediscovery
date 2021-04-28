@@ -291,8 +291,8 @@ void ssdp::qt::Server::processDatagram(const QNetworkDatagram& dg)
 
 bool ssdp::qt::Client::ServerInfo::operator<(const ssdp::qt::Client::ServerInfo& other) const
 {
-    if (isLocal && !other.isLocal) {
-        return true;
+    if (isLocal != other.isLocal) {
+        return isLocal && !other.isLocal;
     }
 
     return socketString < other.socketString;
