@@ -4,7 +4,7 @@
 #include "string_find.h"
 #include "string_format.h"
 #include "string_trim.h"
-#ifdef TL_OPTIONAL
+#if __cplusplus < 201703L
 #include "tl/optional.hpp"
 using tl::nullopt;
 using tl::optional;
