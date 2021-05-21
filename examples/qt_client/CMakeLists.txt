@@ -11,3 +11,4 @@ list(APPEND SOURCES
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 target_link_libraries(${PROJECT_NAME} Qt5::Network)
+
