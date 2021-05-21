@@ -1,0 +1,9 @@
+{
+    "C_Cpp.dimInactiveRegions": true,
+    "files.associations": {
+        "optional": "cpp",
+        "type_traits": "cpp",
+        "qcoreapplication": "cpp"
+    },
+    "editor.formatOnSave": true
+}
