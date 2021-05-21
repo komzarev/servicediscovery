@@ -23,7 +23,7 @@ qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
-DEFINES += BOOST_ASIO_STANDALONE BOOST_ASIO_SEPARATE_COMPILATION TL_OPTIONAL
+DEFINES += BOOST_ASIO_STANDALONE BOOST_ASIO_SEPARATE_COMPILATION
 INCLUDEPATH += $$PWD/../../dep/boost-ho/include
 qnx7: INCLUDEPATH += -isystem $$PWD/../../dep/boost-ho/qnx7
 qnx: LIBS += -lsocket
