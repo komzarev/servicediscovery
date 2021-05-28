@@ -234,16 +234,16 @@ void ssdp::qt::Server::setDebugMode(bool isDebug)
 bool ssdp::qt::Server::start(const QString& name, const QString& details)
 {
     if (port_.isEmpty()) {
-        log.error("Service port was not specified");
+        log.error("Service port was not set");
         return false;
     }
+
+    resp_->servername = name.toLatin1().data();
+    resp_->serverdetails = details.toLatin1().data();
 
     updateInterfacesList();
 
     connect(socket_, &QUdpSocket::readyRead, this, &Server::readPendingDatagrams);
-
-    resp_->servername = name.toLatin1().data();
-    resp_->serverdetails = details.toLatin1().data();
 
     updateInterfaceListTimer_.setInterval(10000);
 

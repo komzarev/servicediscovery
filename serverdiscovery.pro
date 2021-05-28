@@ -3,5 +3,5 @@ CONFIG += ordered
 
 SUBDIRS += \
     serverdiscovery \
-    test_message \
+    tests \
     examples

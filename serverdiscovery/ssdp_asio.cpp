@@ -2,15 +2,18 @@
 
 using namespace boost::asio::ip;
 
-bool ssdp::asio::Server::start(const std::string& name, const std::string& details, boost::asio::io_service& io_service)
+ssdp::asio::Server::Server(std::string type)
 {
-    if (port_.empty()) {
-        return false;
-    }
+    resp_.servertype = std::move(type);
+}
 
-    resp_.servername = name;
-    resp_.serverdetails = details;
+ssdp::asio::Server::~Server()
+{
+    stop();
+}
 
+void ssdp::asio::Server::updateInterfacesList(boost::asio::io_service& io_service)
+{
     udp::resolver resolver(io_service);
     udp::resolver::query query(host_name(), "");
     udp::resolver::iterator it = resolver.resolve(query);
@@ -22,22 +25,46 @@ bool ssdp::asio::Server::start(const std::string& name, const std::string& detai
 
             try {
                 auto socket = new UdpSocket(io_service);
-                socket->socket.open(boost::asio::ip::udp::v4());
+                socket->socket.open(udp::v4());
                 socket->socket.set_option(udp::socket::reuse_address(true));
                 socket->socket.bind(udp::endpoint(addr.address(), 1900));
                 socket->socket.set_option(multicast::join_group(multicast_addr));
-                std::cout << "Succesfully bind to: " << addr.address().to_v4().to_string() << "\n";
+                log_.info("Succesfully bind to: ", addr.address().to_v4().to_string());
                 sockets_.emplace_back(socket);
-                start_receive(socket);
+                startReceive(socket);
             }
             catch (boost::system::system_error& err) {
-                std::cout << err.what() << '\n';
-                return false;
+                log_.error(err.what());
             }
         }
     }
+}
 
+bool ssdp::asio::Server::start(std::string name, std::string details, boost::asio::io_service& io_service)
+{
+    if (port_.empty()) {
+        log_.error("Port number was not set");
+        return false;
+    }
+
+    resp_.servername = std::move(name);
+    resp_.serverdetails = std::move(details);
+
+    updateInterfacesList(io_service);
     return true;
+}
+
+void ssdp::asio::Server::stop()
+{
+    try {
+        for (auto& s : sockets_) {
+            s->socket.close();
+        }
+        sockets_.clear();
+    }
+    catch (boost::system::system_error& err) {
+        log_.error(err.what());
+    }
 }
 
 void ssdp::asio::Server::readPendingDatagrams(const boost::system::error_code& error, const size_t bytes_recived, UdpSocket* socket)
@@ -49,23 +76,24 @@ void ssdp::asio::Server::readPendingDatagrams(const boost::system::error_code& e
                 if (resp_.matchRequest(req.value())) {
                     auto tmp = resp_;
                     tmp.location = socket->socket.local_endpoint().address().to_string() + ":" + port_;
-                    std::cout << "Answer to: " << socket->remote_endpoint.address().to_string() << "\n";
+                    log_.info("Answer to: ", socket->remote_endpoint.address().to_string());
                     socket->socket.send_to(boost::asio::buffer(tmp.to_string()), socket->remote_endpoint);
                 }
             }
         }
     }
     catch (boost::system::system_error& err) {
-        std::cout << err.what() << '\n';
+        log_.error(err.what());
     }
 }
 
-void ssdp::asio::Server::start_receive(UdpSocket* socket)
+void ssdp::asio::Server::startReceive(UdpSocket* socket)
 {
-    socket->socket.async_receive_from(boost::asio::buffer(socket->buffer), socket->remote_endpoint, [this, socket](const boost::system::error_code& error, const size_t bytes_recived) {
-        readPendingDatagrams(error, bytes_recived, socket);
-        start_receive(socket);
-    });
+    socket->socket.async_receive_from(
+        boost::asio::buffer(socket->buffer), socket->remote_endpoint, [this, socket](const boost::system::error_code& error, const size_t bytes_recived) {
+            readPendingDatagrams(error, bytes_recived, socket);
+            startReceive(socket);
+        });
 }
 
 ssdp::asio::Client::Client()
@@ -82,7 +110,7 @@ ssdp::asio::Client::Client()
             try {
                 std::cout << "Try bind to: " << addr.address().to_string() << "\n";
                 auto socket = new UdpSocket(io_service_);
-                socket->socket.open(boost::asio::ip::udp::v4());
+                socket->socket.open(udp::v4());
                 socket->socket.bind(udp::endpoint(addr.address(), 0));
                 std::cout << "Succesfully bind to: " << addr.address().to_v4().to_string() << "\n";
                 sockets_.emplace_back(socket);
@@ -107,7 +135,6 @@ std::vector<ssdp::asio::Client::ServerInfo> ssdp::asio::Client::findAllServers_(
             for (auto& s : sockets_) {
                 s->socket.cancel();
             }
-            //                    socket_.close();
             isRunning = false;
         }
     });
@@ -117,7 +144,7 @@ std::vector<ssdp::asio::Client::ServerInfo> ssdp::asio::Client::findAllServers_(
     }
     isRunning = true;
 
-    while (isRunning) { //socket_.is_open() always true
+    while (isRunning) {
         io_service_.run_one();
     }
     return ret;
