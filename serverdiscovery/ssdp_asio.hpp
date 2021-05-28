@@ -118,42 +118,32 @@ namespace asio
             std::string name;
             std::string details;
             std::string socketString;
+            bool isLocal;
+            bool operator<(const ServerInfo& other) const;
         };
 
         Client();
 
-        ~Client()
+        ~Client();
+
+        void setDebugMode(bool isDebug)
         {
-            for (auto& s : sockets_) {
-                s->socket.close();
-            }
+            log_.setDebugMode(isDebug);
         }
 
-        std::string findConnetionString(const std::string& type, const std::string& name, const std::string& details, uint32_t timeout_ms = 500)
-        {
-            std::string ret;
-            auto list = findAllServers_(type, name, details, timeout_ms, true);
-            if (!list.empty()) {
-                ret = list[0].socketString;
-            }
-            return ret;
-        }
-
-        std::vector<ServerInfo> findAllServers(const std::string& type, const std::string& name, const std::string& details, uint32_t timeout_ms = 500)
-        {
-            return findAllServers_(type, name, details, timeout_ms, false);
-        }
+        std::vector<ServerInfo> resolve(const std::string& serviceType, const std::string& serviceName, const std::string& serviceDetails, uint32_t timeout_ms = 5000);
 
     private:
-        std::vector<ServerInfo> findAllServers_(const std::string& type, const std::string& name, const std::string& details, uint32_t timeout_ms, bool onlyOne);
-
-        void startRecieve_(std::vector<ServerInfo>& ret, bool onlyOne, UdpSocket* socket);
+        void updateInterfaces_();
+        void startRecieve_(std::vector<ServerInfo>& ret, UdpSocket* socket);
         bool sent(const std::string& type, const std::string& name, const std::string& details);
 
         bool isRunning = false;
         boost::asio::io_service io_service_;
         boost::asio::steady_timer timer_;
         UdpSockets sockets_;
+        std::vector<std::string> joinedInterfaces_;
+        Logger log_;
     };
 }
 }

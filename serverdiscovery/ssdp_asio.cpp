@@ -56,15 +56,15 @@ bool ssdp::asio::Server::start(std::string name, std::string details, boost::asi
 
 void ssdp::asio::Server::stop()
 {
-    try {
-        for (auto& s : sockets_) {
+    for (auto& s : sockets_) {
+        try {
             s->socket.close();
         }
-        sockets_.clear();
+        catch (boost::system::system_error& err) {
+            log_.error(err.what());
+        }
     }
-    catch (boost::system::system_error& err) {
-        log_.error(err.what());
-    }
+    sockets_.clear();
 }
 
 void ssdp::asio::Server::readPendingDatagrams(const boost::system::error_code& error, const size_t bytes_recived, UdpSocket* socket)
@@ -99,48 +99,40 @@ void ssdp::asio::Server::startReceive(UdpSocket* socket)
 ssdp::asio::Client::Client()
     : timer_(io_service_)
 {
-    udp::resolver resolver(io_service_);
-    udp::resolver::query query(host_name(), "");
-    udp::resolver::iterator it = resolver.resolve(query);
+}
 
-    while (it != udp::resolver::iterator()) {
-        auto addr = (it++)->endpoint();
-        if (addr.address().is_v4()) {
+ssdp::asio::Client::~Client()
+{
 
-            try {
-                std::cout << "Try bind to: " << addr.address().to_string() << "\n";
-                auto socket = new UdpSocket(io_service_);
-                socket->socket.open(udp::v4());
-                socket->socket.bind(udp::endpoint(addr.address(), 0));
-                std::cout << "Succesfully bind to: " << addr.address().to_v4().to_string() << "\n";
-                sockets_.emplace_back(socket);
-            }
-            catch (boost::system::system_error& err) {
-                std::cout << err.what() << '\n';
-            }
+    for (auto& s : sockets_) {
+        try {
+            s->socket.close();
+        }
+        catch (boost::system::system_error& err) {
+            log_.error(err.what());
         }
     }
 }
 
-std::vector<ssdp::asio::Client::ServerInfo> ssdp::asio::Client::findAllServers_(const std::string& type, const std::string& name, const std::string& details, uint32_t timeout_ms, bool onlyOne)
+std::vector<ssdp::asio::Client::ServerInfo>
+ssdp::asio::Client::resolve(const std::string& serviceType, const std::string& serviceName, const std::string& serviceDetails, uint32_t timeout_ms)
 {
+    updateInterfaces_();
+
     std::vector<ServerInfo> ret;
-    if (!sent(type, name, details)) {
+    if (!sent(serviceType, serviceName, serviceDetails)) {
         return ret;
     }
 
     timer_.expires_after(std::chrono::milliseconds(timeout_ms));
     timer_.async_wait([this](const boost::system::error_code& error) {
         if (!error) {
-            for (auto& s : sockets_) {
-                s->socket.cancel();
-            }
             isRunning = false;
         }
     });
 
     for (auto& s : sockets_) {
-        startRecieve_(ret, onlyOne, s.get());
+        startRecieve_(ret, s.get());
     }
     isRunning = true;
 
@@ -150,9 +142,40 @@ std::vector<ssdp::asio::Client::ServerInfo> ssdp::asio::Client::findAllServers_(
     return ret;
 }
 
-void ssdp::asio::Client::startRecieve_(std::vector<ssdp::asio::Client::ServerInfo>& ret, bool onlyOne, ssdp::asio::UdpSocket* socket)
+void ssdp::asio::Client::updateInterfaces_()
 {
-    socket->socket.async_receive(boost::asio::buffer(socket->buffer), [this, &ret, onlyOne, socket](const boost::system::error_code& error, const size_t bytes_recived) {
+    udp::resolver resolver(io_service_);
+    udp::resolver::query query(host_name(), "");
+    udp::resolver::iterator it = resolver.resolve(query);
+
+    while (it != udp::resolver::iterator()) {
+        auto addr = (it++)->endpoint();
+        if (addr.address().is_v4()) {
+
+            try {
+                auto name = addr.address().to_string();
+
+                bool hasName = std::find(joinedInterfaces_.begin(), joinedInterfaces_.end(), name) != joinedInterfaces_.end();
+                if (!hasName) {
+                    joinedInterfaces_.push_back(name);
+                    log_.info("Try bind to: ", addr.address().to_string());
+                    auto socket = new UdpSocket(io_service_);
+                    socket->socket.open(udp::v4());
+                    socket->socket.bind(udp::endpoint(addr.address(), 0));
+                    log_.info("Succesfully bind to: ", addr.address().to_v4().to_string());
+                    sockets_.emplace_back(socket);
+                }
+            }
+            catch (boost::system::system_error& err) {
+                log_.error(err.what());
+            }
+        }
+    }
+}
+
+void ssdp::asio::Client::startRecieve_(std::vector<ssdp::asio::Client::ServerInfo>& ret, ssdp::asio::UdpSocket* socket)
+{
+    socket->socket.async_receive(boost::asio::buffer(socket->buffer), [this, &ret, socket](const boost::system::error_code& error, const size_t bytes_recived) {
         if (!error || error == boost::asio::error::message_size) {
             auto res = Response::from_string(std::string(std::begin(socket->buffer), std::begin(socket->buffer) + bytes_recived));
             if (res.has_value()) {
@@ -162,12 +185,10 @@ void ssdp::asio::Client::startRecieve_(std::vector<ssdp::asio::Client::ServerInf
                 si.type = res->servertype;
                 si.details = res->serverdetails;
                 ret.push_back(si);
-                if (onlyOne) {
-                    isRunning = false;
-                } else {
-                    startRecieve_(ret, onlyOne, socket);
-                }
+                startRecieve_(ret, socket);
             }
+        } else {
+            log_.error(error.message());
         }
     });
 }
@@ -177,16 +198,24 @@ bool ssdp::asio::Client::sent(const std::string& type, const std::string& name, 
     Request req(type, name, details);
 
     std::shared_ptr<std::string> message(new std::string(req.to_string()));
-    //    udp::endpoint endpoint(address_v4::from_string("239.255.255.250"), 1900);
-    udp::endpoint endpoint(address_v4::from_string("255.255.255.255"), 1900);
+    udp::endpoint endpoint(address_v4::from_string("239.255.255.250"), 1900);
     try {
         for (auto& s : sockets_) {
             s->socket.send_to(boost::asio::buffer(*message), endpoint);
         }
     }
     catch (boost::system::system_error& err) {
-        std::cout << err.what() << '\n';
+        log_.error(err.what());
         return false;
     }
     return true;
+}
+
+bool ssdp::asio::Client::ServerInfo::operator<(const ssdp::asio::Client::ServerInfo& other) const
+{
+    if (isLocal != other.isLocal) {
+        return isLocal && !other.isLocal;
+    }
+
+    return socketString < other.socketString;
 }

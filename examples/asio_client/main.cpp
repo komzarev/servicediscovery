@@ -51,13 +51,13 @@ separated_stream operator<<(std::ostream& stream, with_separator wsep)
 int main(int argc, char* argv[])
 {
     ssdp::asio::Client client;
+    client.setDebugMode(true);
     while (true) {
-        auto list = client.findAllServers("mpnet_server", "", "", 5000);
+        auto list = client.resolve("mpnet_server", "", "", 5000);
         if (list.empty()) {
             std::cout << "No servers\n";
         } else {
 
-            //            std::cout << list << "\n";
             for (auto l : list) {
                 std::cout << with_separator(" ") << l.type << l.name << l.details << l.socketString << '\n';
             }
