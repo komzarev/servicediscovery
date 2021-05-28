@@ -133,6 +133,8 @@ namespace asio
 
         std::vector<ServerInfo> resolve(const std::string& serviceType, const std::string& serviceName, const std::string& serviceDetails, uint32_t timeout_ms = 5000);
 
+        bool isLocal(const std::string& socketString);
+
     private:
         void updateInterfaces_();
         void startRecieve_(std::vector<ServerInfo>& ret, UdpSocket* socket);

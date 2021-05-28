@@ -1,4 +1,5 @@
 #include "ssdp_asio.hpp"
+#include "string_find.h"
 
 using namespace boost::asio::ip;
 
@@ -139,7 +140,29 @@ ssdp::asio::Client::resolve(const std::string& serviceType, const std::string& s
     while (isRunning) {
         io_service_.run_one();
     }
+
+    if (!ret.empty()) {
+        std::sort(std::begin(ret), std::end(ret), [](auto rhs, auto lhs) {
+            return rhs < lhs;
+        });
+    }
     return ret;
+}
+
+bool ssdp::asio::Client::isLocal(const std::string& socketString)
+{
+    auto tmp = rl::str::get_until(socketString, ":");
+    if (tmp.empty()) {
+        return false;
+    }
+
+    for (const auto& ip : joinedInterfaces_) {
+        if (tmp == ip) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void ssdp::asio::Client::updateInterfaces_()
@@ -184,6 +207,7 @@ void ssdp::asio::Client::startRecieve_(std::vector<ssdp::asio::Client::ServerInf
                 si.name = res->servername;
                 si.type = res->servertype;
                 si.details = res->serverdetails;
+                si.isLocal = isLocal(si.socketString);
                 ret.push_back(si);
                 startRecieve_(ret, socket);
             }

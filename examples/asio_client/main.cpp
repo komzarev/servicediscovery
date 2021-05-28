@@ -59,7 +59,7 @@ int main(int argc, char* argv[])
         } else {
 
             for (auto l : list) {
-                std::cout << with_separator(" ") << l.type << l.name << l.details << l.socketString << '\n';
+                std::cout << with_separator(" ") << l.type << l.name << l.details << l.socketString << (l.isLocal ? "local" : "") << '\n';
             }
 
             std::cout << "======\n";
