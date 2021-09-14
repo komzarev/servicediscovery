@@ -35,10 +35,10 @@ public:
         return rl::str::format(format, servertype.c_str(), servername.c_str(), serverdetails.c_str());
     }
 
-    Request(const std::string& servertypeT, const std::string& servernameT, const std::string& serverdetailsT)
-        : servertype(servertypeT)
-        , servername(servernameT)
-        , serverdetails(serverdetailsT)
+    Request(std::string servertypeT, std::string servernameT, std::string serverdetailsT)
+        : servertype(std::move(servertypeT))
+        , servername(std::move(servernameT))
+        , serverdetails(std::move(serverdetailsT))
     {
     }
 
@@ -89,11 +89,11 @@ public:
         return rl::str::format(format, servertype.c_str(), location.c_str(), servertype.c_str(), servername.c_str(), serverdetails.c_str());
     }
 
-    Response(const std::string& servertypeT, const std::string& servernameT, const std::string& serverdetailsT, const std::string& locationT)
-        : servertype(servertypeT)
-        , servername(servernameT)
-        , serverdetails(serverdetailsT)
-        , location(locationT)
+    Response(std::string servertypeT, std::string servernameT, std::string serverdetailsT, std::string locationT)
+        : servertype(std::move(servertypeT))
+        , servername(std::move(servernameT))
+        , serverdetails(std::move(serverdetailsT))
+        , location(std::move(locationT))
     {
     }
 
