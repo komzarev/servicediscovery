@@ -4,21 +4,23 @@
 #include <QNetworkInterface>
 #include <QThread>
 
-void ssdp::qt::Logger::info(const QString& msg)
+using namespace ssdp::qt;
+
+void Logger::info(const QString& msg)
 {
     if (isDebugMode_) {
         qInfo() << "[SSDP][INFO]: " << msg;
     }
 }
 
-void ssdp::qt::Logger::error(const QString& msg)
+void Logger::error(const QString& msg)
 {
     if (isDebugMode_) {
         qWarning() << "[SSDP][ERROR]: " << msg;
     }
 }
 
-void ssdp::qt::Client::updateInterfaces_()
+void Client::updateInterfaces_()
 {
     auto list = QNetworkInterface::allInterfaces();
     for (const auto& iface : qAsConst(list)) {
@@ -53,12 +55,12 @@ void ssdp::qt::Client::updateInterfaces_()
     }
 }
 
-ssdp::qt::Client::Client(QObject* parent)
+Client::Client(QObject* parent)
     : QObject(parent)
 {
 }
 
-bool ssdp::qt::Client::isLocal(const QString& socketString)
+bool Client::isLocal(const QString& socketString)
 {
     auto tmp = socketString.split(":");
     if (tmp.size() != 2) {
@@ -89,58 +91,40 @@ bool ssdp::qt::Client::isLocal(const QString& socketString)
     return false;
 }
 
-void ssdp::qt::Client::setDebugMode(bool isDebug)
+void Client::setDebugMode(bool isDebug)
 {
     log.setDebugMode(isDebug);
 }
 
-QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::resolve(const QString& serviceType, const QString& serviceName, const QString& serviceDetails, uint32_t timeout_ms)
+bool Client::checkRequest(const Client::ServerRequestInfo& req)
 {
-    updateInterfaces_();
+    if (!req.ipmask.isEmpty()) {
+        return req.ipmask.contains("*") && !req.ipmask.contains("**");
+    }
+    return true;
+}
 
-    QList<ServerInfo> ret;
-    if (!sent(serviceType, serviceName, serviceDetails)) {
-#ifdef __QNXNTO__
-        qWarning("[SSDP][ERROR]: Can't send request, route entry is missed? Add this command to the start script: \n\n"
-                 "\t\troute add 239.0.0.0/8 192.168.50.255\n\n"
-                 "\t\tAnd then restart. Also check firewall ruls on Windows for mpnet-server!\n");
-#endif
+optional<Client::ServerInfo> Client::resolve(const Client::ServerRequestInfo& server, std::chrono::milliseconds maxServerWaitTime)
+{
+    ServerInfo ret;
+    bool hasResult = resolve_(server, maxServerWaitTime, [&ret](ServerInfo& si) -> bool {
+        ret = si;
+        return false;
+    });
 
-        log.error("All sent attempts FAILED");
+    if (hasResult) {
         return ret;
     }
+    return nullopt;
+}
 
-    QDeadlineTimer deadline(timeout_ms);
-
-    while (!deadline.hasExpired()) {
-
-        for (auto& s : sockets) {
-            if (s->hasPendingDatagrams()) {
-                auto dg = s->receiveDatagram();
-                auto ba = dg.data();
-                auto res = Response::from_string(ba.data());
-                if (res.has_value()) {
-                    ServerInfo si;
-                    si.socketString = QString::fromStdString(res->location);
-                    si.name = QString::fromStdString(res->servername);
-                    si.type = QString::fromStdString(res->servertype);
-                    si.details = QString::fromStdString(res->serverdetails);
-                    si.isLocal = isLocal(si.socketString);
-                    ret.push_back(si);
-                    log.info("Get replay from: " + si.socketString);
-                }
-            } else {
-                QThread::msleep(60);
-            }
-        }
-    }
-
-#ifdef __QNXNTO__
-    if (ret.isEmpty()) {
-        qWarning("[SSDP][ERROR]: Can't find server. Check firewall ruls on Windows for mpnet-server!");
-    }
-
-#endif
+QList<Client::ServerInfo> Client::resolveAll(const Client::ServerRequestInfo& server, std::chrono::milliseconds maxServerWaitTime)
+{
+    QList<ServerInfo> ret;
+    resolve_(server, maxServerWaitTime, [&ret](ServerInfo& si) -> bool {
+        ret.push_back(si);
+        return true;
+    });
 
     if (!ret.isEmpty()) {
         std::sort(std::begin(ret), std::end(ret), [](auto rhs, auto lhs) {
@@ -150,7 +134,152 @@ QList<ssdp::qt::Client::ServerInfo> ssdp::qt::Client::resolve(const QString& ser
     return ret;
 }
 
-bool ssdp::qt::Client::sent(const QString& type, const QString& name, const QString& details)
+bool Client::startResolveAsync(const Client::ServerRequestInfo& server, std::chrono::milliseconds maxServerWaitTime)
+{
+    if (!Client::checkRequest(server)) {
+        return false;
+    }
+    updateInterfaces_();
+    bool ret = sent_(server);
+    maxServerWaitTime_ = maxServerWaitTime;
+    timer_.reset(new QTimer());
+    timer_->setInterval(60);
+    timer_->callOnTimeout([this, server] {
+        maxServerWaitTime_ -= timer_->intervalAsDuration();
+        if (maxServerWaitTime_.count() > 0 && isRunning_.load()) {
+
+            for (auto& s : sockets) {
+                if (s->hasPendingDatagrams()) {
+                    auto dg = s->receiveDatagram();
+                    auto ba = dg.data();
+                    auto res = Response::from_string(ba.data());
+                    if (res.has_value()) {
+                        ServerInfo si;
+                        si.socketString = QString::fromStdString(res->location);
+                        log.info("Get replay from: " + si.socketString);
+
+                        if (!server.ipmask.isEmpty() && !isIpMatchedToMask(si.socketString, server.ipmask)) {
+                            log.info(si.socketString + " was filtred by mask.");
+                            continue;
+                        }
+
+                        si.name = QString::fromStdString(res->servername);
+                        si.type = QString::fromStdString(res->servertype);
+                        si.details = QString::fromStdString(res->serverdetails);
+                        si.isLocal = isLocal(si.socketString);
+                        emit serverFound(si);
+                    }
+                }
+            }
+        }
+    });
+    return ret;
+}
+
+bool Client::resolve_(const Client::ServerRequestInfo& server, std::chrono::milliseconds maxServerWaitTime, std::function<bool(Client::ServerInfo&)> func)
+{
+    if (!Client::checkRequest(server)) {
+        return false;
+    }
+
+    updateInterfaces_();
+    if (!sent_(server)) {
+        return false;
+    }
+    QDeadlineTimer deadline(maxServerWaitTime);
+    bool wasFound = false;
+    while (!deadline.hasExpired() && isRunning_.load()) {
+
+        for (auto& s : sockets) {
+            if (s->hasPendingDatagrams()) {
+                auto dg = s->receiveDatagram();
+                auto ba = dg.data();
+                auto res = Response::from_string(ba.data());
+                if (res.has_value()) {
+                    ServerInfo si;
+                    si.socketString = QString::fromStdString(res->location);
+                    log.info("Get replay from: " + si.socketString);
+
+                    if (!server.ipmask.isEmpty() && !isIpMatchedToMask(si.socketString, server.ipmask)) {
+                        log.info(si.socketString + " was filtred by mask.");
+                        continue;
+                    }
+
+                    si.name = QString::fromStdString(res->servername);
+                    si.type = QString::fromStdString(res->servertype);
+                    si.details = QString::fromStdString(res->serverdetails);
+                    si.isLocal = isLocal(si.socketString);
+                    wasFound = true;
+                    if (!func(si)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        QThread::msleep(60);
+    }
+
+#ifdef __QNXNTO__
+    if (ret.isEmpty()) {
+        qWarning("[SSDP][ERROR]: Can't find server. Check firewall ruls on Windows for mpnet-server!");
+    }
+
+#endif
+
+    return wasFound;
+}
+
+bool Client::sent_(const Client::ServerRequestInfo& server)
+{
+    if (!sent(server.serviceType, server.serviceName, server.serviceDetails)) {
+#ifdef __QNXNTO__
+        qWarning("[SSDP][ERROR]: Can't send request, route entry is missed? Add this command to the start script: \n\n"
+                 "\t\troute add 239.0.0.0/8 192.168.50.255\n\n"
+                 "\t\tAnd then restart. Also check firewall ruls on Windows for mpnet-server!\n");
+#endif
+
+        log.error("All sent attempts FAILED");
+        return false;
+    }
+
+    return true;
+}
+
+bool Client::isIpMatchedToMask(const QString& ip, const QString& mask)
+{
+    int j = 0;
+    for (int i = 0; i < ip.size(); ++i) {
+        if (mask[j] != '*') {
+            while (i < ip.size() && ip[i] != '.') {
+                ++i;
+            }
+            ++j;
+        }
+
+        if (j >= mask.size() || i >= ip.size()) {
+            return true;
+        }
+
+        if (ip[i] != mask[j]) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool Client::isRunning()
+{
+    return isRunning_.load();
+}
+
+void Client::stopResolve()
+{
+    isRunning_.store(false);
+}
+
+bool Client::sent(const QString& type, const QString& name, const QString& details)
 {
     Request req(type.toLatin1().data(), name.toLatin1().data(), details.toLatin1().data());
     auto str = req.to_string();
@@ -174,7 +303,7 @@ bool ssdp::qt::Client::sent(const QString& type, const QString& name, const QStr
     return ret;
 }
 
-void ssdp::qt::Server::updateInterfacesList()
+void Server::updateInterfacesList()
 {
 #ifndef _WIN32
     if (socket_ != nullptr) {
@@ -206,7 +335,7 @@ void ssdp::qt::Server::updateInterfacesList()
     }
 }
 
-void ssdp::qt::Server::readPendingDatagrams()
+void Server::readPendingDatagrams()
 {
     while (socket_->hasPendingDatagrams()) {
         auto datagram = socket_->receiveDatagram();
@@ -214,24 +343,24 @@ void ssdp::qt::Server::readPendingDatagrams()
     }
 }
 
-ssdp::qt::Server::Server(const QString& type, QObject* parent)
+Server::Server(const QString& type, QObject* parent)
     : QObject(parent)
 {
     resp_.reset(new Response());
     resp_->servertype = type.toLatin1().data();
 }
 
-ssdp::qt::Server::~Server()
+Server::~Server()
 {
     stop();
 }
 
-void ssdp::qt::Server::setDebugMode(bool isDebug)
+void Server::setDebugMode(bool isDebug)
 {
     log.setDebugMode(isDebug);
 }
 
-bool ssdp::qt::Server::start(const QString& name, const QString& details)
+bool Server::start(const QString& name, const QString& details)
 {
     if (port_.isEmpty()) {
         log.error("Service port was not specified");
@@ -255,7 +384,7 @@ bool ssdp::qt::Server::start(const QString& name, const QString& details)
     return true;
 }
 
-void ssdp::qt::Server::stop()
+void Server::stop()
 {
     updateInterfaceListTimer_.stop();
     socket_->close();
@@ -263,7 +392,7 @@ void ssdp::qt::Server::stop()
     socket_ = nullptr;
 }
 
-void ssdp::qt::Server::processDatagram(const QNetworkDatagram& dg)
+void Server::processDatagram(const QNetworkDatagram& dg)
 {
     auto data = dg.data();
     if (auto req = Request::from_string(data.data())) {
@@ -289,7 +418,7 @@ void ssdp::qt::Server::processDatagram(const QNetworkDatagram& dg)
     }
 }
 
-bool ssdp::qt::Client::ServerInfo::operator<(const ssdp::qt::Client::ServerInfo& other) const
+bool Client::ServerInfo::operator<(const Client::ServerInfo& other) const
 {
     if (isLocal != other.isLocal) {
         return isLocal && !other.isLocal;

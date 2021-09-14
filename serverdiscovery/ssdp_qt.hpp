@@ -6,7 +6,15 @@
 #include <QUdpSocket>
 #include <memory>
 #include <vector>
-
+#if __cplusplus < 201703L
+#include "tl/optional.hpp"
+using tl::nullopt;
+using tl::optional;
+#else
+#include <optional>
+using std::nullopt;
+using std::optional;
+#endif
 namespace ssdp
 {
 class Response;
@@ -42,7 +50,7 @@ namespace qt
         void setDebugMode(bool isDebug);
         //************************************
         // Method:    start
-        // FullName:  ssdp::qt::Server::start
+        // FullName:  Server::start
         // Access:    public
         // Returns:   bool
         // Parameter: const QString & name, name of server can be empty
@@ -53,7 +61,7 @@ namespace qt
 
         //************************************
         // Method:    stop
-        // FullName:  ssdp::qt::Server::stop
+        // FullName:  Server::stop
         // Access:    public
         // Returns:   void
         // Stops server and delete data
@@ -62,7 +70,7 @@ namespace qt
 
         //************************************
         // Method:    setServicePort
-        // FullName:  ssdp::qt::Server::setServicePort
+        // FullName:  Server::setServicePort
         // Access:    public
         // Returns:   void
         // Parameter: const QString & port
@@ -101,35 +109,46 @@ namespace qt
             QString details;
             QString socketString;
             bool isLocal;
+            std::chrono::milliseconds responseTime;
 
             bool operator<(const ServerInfo& other) const;
         };
 
+        struct ServerRequestInfo
+        {
+            QString serviceType;
+            QString serviceName;
+            QString serviceDetails;
+            QString ipmask;
+        };
+
         Client(QObject* parent = 0);
-
-        //************************************
-        // Method:    findAllServers
-        // FullName:  ssdp::qt::Client::findAllServers
-        // Access:    public
-        // Returns:   QList<ssdp::qt::Client::ServerInfo>
-        // Parameter: const QString & type
-        // Parameter: const QString & name
-        // Parameter: const QString & details
-        // Parameter: uint32_t timeout_ms
-        // Returns all matched services which responded during timeout_ms, always blocks for timeout_ms
-        //************************************
-        QList<ServerInfo> resolve(const QString& serviceType, const QString& serviceName, const QString& serviceDetails, uint32_t timeout_ms = 5000);
-
-        static bool isLocal(const QString& socketString);
-
         void setDebugMode(bool isDebug);
 
+        static bool isLocal(const QString& socketString);
+        static bool isIpMatchedToMask(const QString& ip, const QString& mask);
+        static bool checkRequest(const ServerRequestInfo& req);
+
+        optional<ServerInfo> resolve(const ServerRequestInfo& server, std::chrono::milliseconds maxServerWaitTime = std::chrono::seconds(5));
+        QList<ServerInfo> resolveAll(const ServerRequestInfo& server, std::chrono::milliseconds maxServerWaitTime = std::chrono::seconds(5));
+
+        bool startResolveAsync(const ServerRequestInfo& server, std::chrono::milliseconds maxServerWaitTime = std::chrono::seconds(5));
+        bool isRunning();
+        void stopResolve();
+    signals:
+        void serverFound(const ServerInfo& server);
+
     private:
+        bool resolve_(const ServerRequestInfo& server, std::chrono::milliseconds maxServerWaitTime, std::function<bool(ServerInfo& si)> func);
+        bool sent_(const ServerRequestInfo& server);
         void updateInterfaces_();
         bool sent(const QString& type, const QString& name, const QString& details);
         QStringList joinedInterfaces_;
         std::vector<std::unique_ptr<QUdpSocket>> sockets;
         Logger log;
+        std::atomic_bool isRunning_{ false };
+        std::unique_ptr<QTimer> timer_;
+        std::chrono::milliseconds maxServerWaitTime_;
     };
 }
 }
