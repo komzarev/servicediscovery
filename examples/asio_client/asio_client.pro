@@ -5,7 +5,7 @@ CONFIG += c++11 console
 CONFIG -= app_bundle
 CONFIG -= qt
 
-DEFINES += BOOST_ASIO_STANDALONE BOOST_ASIO_SEPARATE_COMPILATION TL_OPTIONAL
+DEFINES += BOOST_ASIO_STANDALONE BOOST_ASIO_SEPARATE_COMPILATION
 INCLUDEPATH += $$PWD/../../dep/boost-ho/include
 qnx7: INCLUDEPATH += -isystem $$PWD/../../dep/boost-ho/qnx7
 qnx: LIBS += -lsocket

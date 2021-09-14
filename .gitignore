@@ -1,0 +1,7 @@
+*.o
+moc_*
+*.a
+Makefile
+test_message/target_wrapper.sh
+.qmake.stash
+build/*

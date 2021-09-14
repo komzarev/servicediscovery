@@ -34,6 +34,20 @@ namespace str
         return str.substr(start, end - start);
     }
 
+    inline std::string get_until(const std::string& str, const std::string& token)
+    {
+        size_t start = 0;
+        auto end = str.find(token, 0);
+        if (end == std::string::npos) {
+            return {};
+        }
+
+        if (start == end) {
+            return {};
+        }
+        return str.substr(start, end - start);
+    }
+
     inline size_t position_after(const std::string& str, const std::string& token)
     {
         auto pos = str.find(token);

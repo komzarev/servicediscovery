@@ -18,6 +18,7 @@ HEADERS += \
     string_format.h \
     string_trim.h
 
+DEFINES+=_WIN32_WINNT=0x0A00
 
 INCLUDEPATH += $$PWD/../dep/optional/include
 
