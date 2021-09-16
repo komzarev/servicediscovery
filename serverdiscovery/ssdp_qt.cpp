@@ -1,4 +1,5 @@
 #include "ssdp_qt.hpp"
+#include "finally.hpp"
 #include "ssdp_message.hpp"
 #include <QDeadlineTimer>
 #include <QNetworkInterface>
@@ -147,6 +148,7 @@ QList<Client::ServerInfo> Client::resolveAll(const Client::ServerRequestInfo& se
 
 bool Client::startResolveAsync(const Client::ServerRequestInfo& server, std::chrono::milliseconds maxServerWaitTime)
 {
+    isRunning_.store(true);
     if (!Client::checkRequest(server)) {
         return false;
     }
@@ -182,6 +184,9 @@ bool Client::startResolveAsync(const Client::ServerRequestInfo& server, std::chr
                     }
                 }
             }
+        } else {
+            timer_->stop();
+            isRunning_.store(false);
         }
     });
     return ret;
@@ -189,6 +194,9 @@ bool Client::startResolveAsync(const Client::ServerRequestInfo& server, std::chr
 
 bool Client::resolve_(const Client::ServerRequestInfo& server, std::chrono::milliseconds maxServerWaitTime, std::function<bool(Client::ServerInfo&)> func)
 {
+    isRunning_.store(true);
+    finally([this] { isRunning_.store(false); });
+
     if (!Client::checkRequest(server)) {
         return false;
     }
