@@ -157,7 +157,7 @@ bool Client::startResolveAsync(const Client::ServerRequestInfo& server, std::chr
     maxServerWaitTime_ = maxServerWaitTime;
     timer_.reset(new QTimer());
     timer_->setInterval(60);
-    timer_->callOnTimeout([this, server] {
+    timer_->callOnTimeout([this, server, maxServerWaitTime] {
         maxServerWaitTime_ -= timer_->intervalAsDuration();
         if (maxServerWaitTime_.count() > 0 && isRunning_.load()) {
 
@@ -168,6 +168,10 @@ bool Client::startResolveAsync(const Client::ServerRequestInfo& server, std::chr
                     auto res = Response::from_string(ba.data());
                     if (res.has_value()) {
                         ServerInfo si;
+
+                        auto d = maxServerWaitTime - maxServerWaitTime_;
+                        si.responseTime = std::chrono::duration_cast<std::chrono::milliseconds>(d);
+
                         si.socketString = QString::fromStdString(res->location);
                         log.info("Get replay from: " + si.socketString);
 
@@ -180,6 +184,7 @@ bool Client::startResolveAsync(const Client::ServerRequestInfo& server, std::chr
                         si.type = QString::fromStdString(res->servertype);
                         si.details = QString::fromStdString(res->serverdetails);
                         si.isLocal = isLocal(si.socketString);
+
                         emit serverFound(si);
                     }
                 }
@@ -217,6 +222,8 @@ bool Client::resolve_(const Client::ServerRequestInfo& server, std::chrono::mill
                 if (res.has_value()) {
                     ServerInfo si;
                     si.socketString = QString::fromStdString(res->location);
+                    auto d = maxServerWaitTime - deadline.remainingTimeAsDuration();
+                    si.responseTime = std::chrono::duration_cast<std::chrono::milliseconds>(d);
                     log.info("Get replay from: " + si.socketString);
 
                     if (!server.ipmask.isEmpty() && !isIpMatchedToMask(si.socketString, server.ipmask)) {
