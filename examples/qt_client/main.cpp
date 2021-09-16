@@ -4,16 +4,17 @@
 
 int main(int argc, char* argv[])
 {
+    using namespace std::chrono_literals;
     QCoreApplication a(argc, argv);
 
     ssdp::qt::Client client;
     client.setDebugMode(true);
     while (true) {
-        auto list = client.resolve("mpnet_server", "", "", 5000);
+        auto list = client.resolveAll({ "mpnet_server", "", "", "" }, 5s);
         if (list.isEmpty()) {
             qDebug() << "No servers";
         } else {
-            for (auto l : list) {
+            for (const auto& l : list) {
                 qDebug() << l.type << l.name << l.details << l.socketString;
             }
             qDebug() << "======";

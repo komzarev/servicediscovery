@@ -10,5 +10,7 @@ TEMPLATE = app
 QT       += network
 
 
-SOURCES +=  tst_parser.cpp
 INCLUDEPATH += $$PWD/../dep/optional/include
+
+SOURCES += \
+    tst_clientutility.cpp

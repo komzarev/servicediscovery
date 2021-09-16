@@ -2,6 +2,7 @@
 #include "ssdp_message.hpp"
 #include <QDeadlineTimer>
 #include <QNetworkInterface>
+#include <QRegularExpression>
 #include <QThread>
 
 using namespace ssdp::qt;
@@ -99,7 +100,17 @@ void Client::setDebugMode(bool isDebug)
 bool Client::checkRequest(const Client::ServerRequestInfo& req)
 {
     if (!req.ipmask.isEmpty()) {
-        return req.ipmask.contains("*") && !req.ipmask.contains("**");
+        bool start = req.ipmask.contains("*")
+            && !req.ipmask.contains("**");
+
+        if (!start) {
+            return false;
+        }
+
+        auto str = req.ipmask;
+        str.replace("*", "1");
+        QHostAddress address(str);
+        return !address.isNull();
     }
     return true;
 }
@@ -248,25 +259,13 @@ bool Client::sent_(const Client::ServerRequestInfo& server)
 
 bool Client::isIpMatchedToMask(const QString& ip, const QString& mask)
 {
-    int j = 0;
-    for (int i = 0; i < ip.size(); ++i) {
-        if (mask[j] != '*') {
-            while (i < ip.size() && ip[i] != '.') {
-                ++i;
-            }
-            ++j;
-        }
-
-        if (j >= mask.size() || i >= ip.size()) {
-            return true;
-        }
-
-        if (ip[i] != mask[j]) {
-            return false;
-        }
-    }
-
-    return true;
+    auto task = mask;
+    task.replace("*", "[0-9]+");
+    task.append("$");
+    task.prepend("^");
+    const QRegularExpression rx(task);
+    auto match = rx.match(ip);
+    return match.hasMatch();
 }
 
 bool Client::isRunning()

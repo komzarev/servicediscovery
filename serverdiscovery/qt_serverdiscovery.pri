@@ -1,4 +1,4 @@
-
+CONFIG += c++14
 INCLUDEPATH += $$PWD
 
 HEADERS += \
