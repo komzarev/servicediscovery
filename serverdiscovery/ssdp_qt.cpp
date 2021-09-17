@@ -66,7 +66,6 @@ Client::Client(QObject* parent)
 Client::~Client()
 {
     stopResolve();
-    QThread::msleep(15);
 }
 
 bool Client::isLocal(const QString& socketString)
@@ -198,8 +197,11 @@ bool Client::startResolveAsync(const Client::ServerRequestInfo& server, std::chr
             }
         } else {
             timer_->stop();
-            isRunning_.store(false);
-            emit maxServerTimeElapsed();
+            if (isRunning_.load()) {
+                emit maxServerTimeElapsed();
+            } else {
+                isRunning_.store(false);
+            }
         }
     });
     timer_->start();
@@ -209,7 +211,7 @@ bool Client::startResolveAsync(const Client::ServerRequestInfo& server, std::chr
 bool Client::resolve_(const Client::ServerRequestInfo& server, std::chrono::milliseconds maxServerWaitTime, std::function<bool(Client::ServerInfo&)> func)
 {
     isRunning_.store(true);
-    finally([this] { isRunning_.store(false); });
+    auto _ = finally([this] { isRunning_.store(false); });
 
     if (!Client::checkRequest(server)) {
         return false;
@@ -235,9 +237,12 @@ bool Client::resolve_(const Client::ServerRequestInfo& server, std::chrono::mill
                     si.responseTime = std::chrono::duration_cast<std::chrono::milliseconds>(d);
                     log.info("Get replay from: " + si.socketString);
 
-                    if (!server.ipmask.isEmpty() && !isIpMatchedToMask(si.socketString, server.ipmask)) {
-                        log.info(si.socketString + " was filtred by mask.");
-                        continue;
+                    if (!server.ipmask.isEmpty()) {
+                        auto hostPort = si.socketString.split(":", QString::SkipEmptyParts);
+                        if (!isIpMatchedToMask(hostPort[0], server.ipmask)) {
+                            log.info(si.socketString + " was filtred by mask.");
+                            continue;
+                        }
                     }
 
                     si.name = QString::fromStdString(res->servername);
@@ -304,6 +309,7 @@ bool Client::isRunning()
 void Client::stopResolve()
 {
     isRunning_.store(false);
+    QThread::msleep(60);
 }
 
 bool Client::sent(const QString& type, const QString& name, const QString& details)
