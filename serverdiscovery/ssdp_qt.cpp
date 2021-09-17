@@ -60,6 +60,13 @@ void Client::updateInterfaces_()
 Client::Client(QObject* parent)
     : QObject(parent)
 {
+    qRegisterMetaType<ssdp::qt::Client::ServerInfo>("ssdp::qt::Client::ServerInfo");
+}
+
+Client::~Client()
+{
+    stopResolve();
+    QThread::msleep(15);
 }
 
 bool Client::isLocal(const QString& socketString)
@@ -192,8 +199,10 @@ bool Client::startResolveAsync(const Client::ServerRequestInfo& server, std::chr
         } else {
             timer_->stop();
             isRunning_.store(false);
+            emit maxServerTimeElapsed();
         }
     });
+    timer_->start();
     return ret;
 }
 
@@ -243,7 +252,11 @@ bool Client::resolve_(const Client::ServerRequestInfo& server, std::chrono::mill
             }
         }
 
-        QThread::msleep(60);
+        if (!isRunning_.load()) {
+            QThread::msleep(60);
+        } else {
+            break;
+        }
     }
 
 #ifdef __QNXNTO__

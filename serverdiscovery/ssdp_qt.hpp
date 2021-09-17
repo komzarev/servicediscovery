@@ -123,6 +123,7 @@ namespace qt
         };
 
         Client(QObject* parent = 0);
+        ~Client();
         void setDebugMode(bool isDebug);
 
         static bool isLocal(const QString& socketString);
@@ -137,6 +138,7 @@ namespace qt
         void stopResolve();
     signals:
         void serverFound(const ServerInfo& server);
+        void maxServerTimeElapsed();
 
     private:
         bool resolve_(const ServerRequestInfo& server, std::chrono::milliseconds maxServerWaitTime, std::function<bool(ServerInfo& si)> func);
@@ -151,6 +153,8 @@ namespace qt
         std::chrono::milliseconds maxServerWaitTime_;
     };
 }
+
 }
 
+Q_DECLARE_METATYPE(ssdp::qt::Client::ServerInfo);
 #endif // QT_SSDP_SERVER_HPP
