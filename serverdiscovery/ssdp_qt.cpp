@@ -265,7 +265,7 @@ bool Client::resolve_(const Client::ServerRequestInfo& server, std::chrono::mill
     }
 
 #ifdef __QNXNTO__
-    if (ret.isEmpty()) {
+    if (!wasFound) {
         qWarning("[SSDP][ERROR]: Can't find server. Check firewall ruls on Windows for mpnet-server!");
     }
 
