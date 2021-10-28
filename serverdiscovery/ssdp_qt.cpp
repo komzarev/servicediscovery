@@ -116,8 +116,10 @@ bool Client::checkRequest(const Client::ServerRequestInfo& req)
 
         auto str = req.ipmask;
         str.replace("*", "1");
-        QHostAddress address(str);
-        return !address.isNull();
+
+        static const QRegularExpression portrx("^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)(\\.(?!$)|$)){4}$");
+        auto match = portrx.match(str);
+        return match.hasMatch();
     }
     return true;
 }
