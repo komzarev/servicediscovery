@@ -1,26 +1,26 @@
 # ServiceDiscovery
 
-## Описание
-Библиотека реализует поиск сервисов по протоколу SSDP (https://en.wikipedia.org/wiki/Simple_Service_Discovery_Protocol). Содержит код и для сервера и для клиента.
+## Description
+Library implements service discovery via SSDP protocol (https://en.wikipedia.org/wiki/Simple_Service_Discovery_Protocol). It contains code for both server and client.
 
-Библиотека не связана с mpnet и может быть использована отдельно.
+Tested on Windows, Linux, QNX.
 
-Протестирована работа под Windows, Linux, QNX.
-## Структура проекта
-* servicediscovery - файлы исходного кода
-  * ssdp_qt.hpp/cpp - реализация на сетевом стеке Qt5
-  * ssdp_asio.hpp/cpp - на boost::asio
-* test - юнит тесты 
-* examples - примеры сервера и клиента на Qt и boost::asio
-## Добавление в проект
-Файлы библиотеки включаются в проект в виде исходного кода.
-Подробности в проектных файлах примеров.
+## Project structure
+* servicediscovery - source code files
+  * ssdp_qt.hpp/cpp - implementation on the Qt5 network stack
+  * ssdp_asio.hpp/cpp - on boost::asio
+* test - unit tests 
+* examples - server and client examples on Qt and boost::asio
+  
+## Adding to a project
+The library files are included in the project as source code.
+See the examples project files for details.
 
-## Описание работы
+## Description of operation
 
-SSDP сервер запускается в составе пользовательского сервиса или вместе с ним и имеет параметры:
-* type - тип сервиса, обязательный параметр.
-* name, detail - имя и вторая чать имени - необязательные параметры.
-* port - порт на котором запущен пользовательский сервис.
+SSDP server is started as part of a user service or together with it and has parameters:
+* type - service type, mandatory parameter.
+* name, detail - name and the second part of the name - optional parameters.
+* port - port on which the user service is launched.
 
-SSDP клиент может найти все SSDP сервера доступные в сети Ethernet, имеющие заданный при поиске  type,name,detail. В ответе сервера будет ip адрес на котором он запущен и заданное при запуске значение port.
+SSDP client can find all SSDP services available in Ethernet network that have type,name,detail specified in the search. The server response will contain ip address on which it is launched and port value specified at startup.
